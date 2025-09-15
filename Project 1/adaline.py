@@ -45,8 +45,10 @@ class Adaline():
         ----------
         The net_input. Shape = [Num samples,]
         '''
-        pass
+        netIn = (features @ self.get_wts()) + self.get_bias()
+        return netIn
 
+   
     def activation(self, net_in):
         '''Applies the activation function to the net input and returns the output neuron's activation.
         It is simply the identify function for vanilla ADALINE: f(x) = x
@@ -59,7 +61,7 @@ class Adaline():
         ----------
         net_act. ndarray. Shape = [Num samples N,]
         '''
-        pass
+        return net_in
 
     def predict(self, features):
         '''Predicts the class of each test input sample
@@ -75,7 +77,11 @@ class Adaline():
 
         NOTE: Remember to apply the activation function!
         '''
-        pass
+        net_in = self.net_input(features)
+        net_act = self.activation(net_in)
+        predicted = np.where(net_act >= 0, 1, -1)
+        return predicted
+        
 
     def accuracy(self, y, y_pred):
         ''' Computes accuracy (proportion correct) (across a single training epoch)
