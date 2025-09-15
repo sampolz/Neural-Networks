@@ -98,7 +98,7 @@ class Adaline():
         float. The accuracy for each input sample in the epoch. ndarray.
             Expressed as proportions in [0.0, 1.0]
         '''
-        pass
+        return np.mean(y == y_pred)
 
     def loss(self, y, net_act):
         ''' Computes the Sum of Squared Error (SSE) loss (over a single training epoch)
@@ -114,7 +114,8 @@ class Adaline():
         ----------
         float. The SSE loss (across a single training epoch).
         '''
-        pass
+        diff = y - net_act
+        return 0.5 * np.sum(diff ** 2)
 
     def gradient(self, errors, features):
         ''' Computes the error gradient of the loss function (for a single epoch).
@@ -134,7 +135,9 @@ class Adaline():
         grad_wts: ndarray. shape=(Num features N,).
             Gradient with respect to the neuron weights in the input feature layer
         '''
-        pass
+        grad_bias = -np.sum(errors)
+        grad_wts = -features.T @ errors
+        return grad_bias, grad_wts
 
     def fit(self, features, y, n_epochs=1000, lr=0.001, r_seed=None):
         '''Trains the network on the input features for self.n_epochs number of epochs
