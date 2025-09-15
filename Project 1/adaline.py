@@ -150,7 +150,7 @@ class Adaline():
         lr: float.
             Learning rate used in weight updates during training
         r_seed: None or int.
-            Random seed used for controlling the reproducability of the wts and bias
+            Random seed used for controlling the reproducability of the wts
 
         Returns:
         ----------
@@ -160,7 +160,8 @@ class Adaline():
             Each accuracy value is the accuracy over a training epoch.
 
         TODO:
-        1. Initialize the weights according to a Gaussian distribution centered at 0 with standard deviation of 0.01.
+        1. Initialize the weights according to a Gaussian distribution centered at 0 with standard deviation of 0.01
+        using the recommended method of generating random numbers from lecture.
         2. Initialize the bias according to the recommended method from lecture.
         3. Write the main training loop where you:
             - Pass the inputs in each training epoch through the net.
