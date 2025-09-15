@@ -1,5 +1,5 @@
 '''adaline.py
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS343: Neural Networks
 Project 1: Single Layer Networks
 ADALINE (ADaptive LInear NEuron) neural network for classification and regression
