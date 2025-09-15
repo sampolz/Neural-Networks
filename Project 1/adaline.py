@@ -27,11 +27,11 @@ class Adaline():
 
     def get_wts(self):
         ''' Returns a copy of the network weight array'''
-        pass
+        return self.wts
 
     def get_bias(self):
         ''' Returns a copy of the bias'''
-        pass
+        return self.b
 
     def net_input(self, features):
         ''' Computes the net_input (weighted sum of input features,  wts, bias)
