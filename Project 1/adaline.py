@@ -171,4 +171,23 @@ class Adaline():
             - Compute the error, loss, and accuracy (across the entire epoch).
             - Do backprop to update the weights and bias.
         '''
-        pass
+        N, M = features.shape
+        rng = np.random.default_rng(seed = r_seed)
+        self.wts = rng.normal(loc=0, scale=0.01, size=M)
+        self.b = 0.0
+        self.loss_history = []
+        self.accuracy_history = []
+
+        for i in range(n_epochs):
+            net_in = self.net_input(features)
+            net_act = self.activation(net_in)
+
+            loss = self.loss(y, net_act)
+            pred = self.predict(features)
+            acc = self.accuracy(y, pred)
+
+            self.loss_history.append(loss)
+            self.accuracy_history.append(acc)
+
+            
+            
