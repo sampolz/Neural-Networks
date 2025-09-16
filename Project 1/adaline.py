@@ -188,6 +188,7 @@ class Adaline():
 
             self.loss_history.append(loss)
             self.accuracy_history.append(acc)
+            
 
             # still need to finish this but its almost there
             # might need to use gradient decent formula? idk
