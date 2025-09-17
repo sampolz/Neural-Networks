@@ -197,6 +197,6 @@ class Adaline():
             
         return self.loss_history, self.accuracy_history
     
-class Perception(Adaline):
+class Perceptron(Adaline):
     def activation(self, net_in):
-        np.where(net_in < 0, -1, 1)
+        return np.where(net_in < 0, -1, 1)
