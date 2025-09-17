@@ -190,6 +190,9 @@ class Adaline():
             self.accuracy_history.append(acc)
             
 
-            # still need to finish this but its almost there
-            # might need to use gradient decent formula? idk
+            errors = y - net_act
+            grad_b, grad_w = self.gradient(errors, features)
+            self.wts -= lr * grad_w
+            self.b   -= lr * grad_b
             
+        return self.loss_history, self.accuracy_history
