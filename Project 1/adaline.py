@@ -196,3 +196,7 @@ class Adaline():
             self.b   -= lr * grad_b
             
         return self.loss_history, self.accuracy_history
+    
+class Perception(Adaline):
+    def activation(self, net_in):
+        np.where(net_in < 0, -1, 1)
