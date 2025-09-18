@@ -59,8 +59,8 @@ class AdalineLogistic(Adaline):
         ----------
         The loss from our logistic function.
         '''
-
+        tiny = 1e-15
+        net_act = np.clip(net_act, tiny, 1 - tiny)
         cross_entropy_loss = np.sum((-y * np.log(net_act)) - ((1 - y) * np.log(1 - net_act)))
         return cross_entropy_loss
-            
             
