@@ -197,6 +197,126 @@ class Adaline():
             
         return self.loss_history, self.accuracy_history
     
+    #Extensions
+
+    def fit_count_loss(self, features, y, n_epochs=1000, lr=0.001, consecutive_loss_count = 0, r_seed=None):
+        '''Trains the network on the input features for self.n_epochs number of epochs
+        and adjusts the learning rate if the loss increases more than twice in a row.
+
+        Parameters:
+        ----------
+        features: ndarray. Shape = [Num samples N, Num features M]
+            Collection of input vectors.
+        y: ndarray. Shape = [Num samples N,]
+            Classes corresponding to each input sample (coded -1 or +1).
+        n_epochs: int.
+            Number of epochs to use for training the network
+        lr: float.
+            Learning rate used in weight updates during training
+        consecutive_loss_count: int.
+            Number of consecutive epochs with increasing loss to trigger learning rate adjustment
+        r_seed: None or int.
+            Random seed used for controlling the reproducability of the wts
+
+        Returns:
+        ----------
+        self.loss_history: Python list of network loss values for each epoch of training.
+        self.acc_history: Python list of network accuracy values for each epoch of training
+            Each accuracy value is the accuracy over a training epoch.
+        '''
+
+        N, M = features.shape
+        rng = np.random.default_rng(seed = r_seed)
+        self.wts = rng.normal(loc=0, scale=0.01, size=M)
+        self.b = 0.0
+        self.loss_history = []
+        self.accuracy_history = []
+
+        for i in range(n_epochs):
+            net_in = self.net_input(features)
+            net_act = self.activation(net_in)
+
+            loss = self.loss(y, net_act)
+            pred = self.predict(features)
+            acc = self.accuracy(y, pred)
+
+            self.loss_history.append(loss)
+            self.accuracy_history.append(acc)
+
+            if len(self.loss_history) > 1 and loss > self.loss_history[-2]:
+                consecutive_loss_count += 1
+            else:
+                consecutive_loss_count = 0
+            if consecutive_loss_count > 2:
+                lr *= 0.5
+                consecutive_loss_count = 0
+
+            errors = y - net_act
+            grad_b, grad_w = self.gradient(errors, features)
+            self.wts -= lr * grad_w
+            self.b   -= lr * grad_b
+
+        return self.loss_history, self.accuracy_history
+    
+
+    def fit_log_decay(self, features, y, n_epochs=1000, lr_initial=0.01, decay_rate=0.95, r_seed=None):
+        '''Trains the network on the input features for self.n_epochs number of epochs
+        and adjusts the learning rate at a logarithmic decay rate.
+
+        Parameters:
+        ----------
+        features: ndarray. Shape = [Num samples N, Num features M]
+            Collection of input vectors.
+        y: ndarray. Shape = [Num samples N,]
+            Classes corresponding to each input sample (coded -1 or +1).
+        n_epochs: int.
+            Number of epochs to use for training the network
+        lr_initial: float.
+            Learning rate used in weight updates during training
+        consecutive_loss_count: int.
+            Number of consecutive epochs with increasing loss to trigger learning rate adjustment
+        decay_rate: float
+            Rate at which to decay the learning rate
+        r_seed: None or int.
+            Random seed used for controlling the reproducability of the wts
+
+
+        Returns:
+        ----------
+        self.loss_history: Python list of network loss values for each epoch of training.
+        self.acc_history: Python list of network accuracy values for each epoch of training
+            Each accuracy value is the accuracy over a training epoch.
+        '''
+        
+        N, M = features.shape
+        rng = np.random.default_rng(seed = r_seed)
+        self.wts = rng.normal(loc=0, scale=0.01, size=M)
+        self.b = 0.0
+        self.loss_history = []
+        self.accuracy_history = []
+
+        for i in range(n_epochs):
+            lr = lr_initial / (1 + decay_rate * i)
+            net_in = self.net_input(features)
+            net_act = self.activation(net_in)
+
+            loss = self.loss(y, net_act)
+            pred = self.predict(features)
+            acc = self.accuracy(y, pred)
+
+            self.loss_history.append(loss)
+            self.accuracy_history.append(acc)
+            
+
+            errors = y - net_act
+            grad_b, grad_w = self.gradient(errors, features)
+            self.wts -= lr * grad_w
+            self.b   -= lr * grad_b
+            
+        return self.loss_history, self.accuracy_history
+        
+
+    
 class Perceptron(Adaline):
     def activation(self, net_in):
         return np.where(net_in < 0, -1, 1)
