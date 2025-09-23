@@ -1,6 +1,7 @@
 '''preprocess_data.py
 Preprocessing data in STL-10 image dataset
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
+Fall 2025
 CS343: Neural Networks
 Project 2: Multilayer Perceptrons
 '''
@@ -26,7 +27,13 @@ def preprocess_stl(imgs, labels):
     3) Treating the pixels as features, standardize the features "seperately"
     4) Fix class labeling. Should span 0, 1, ..., 9 NOT 1,2,...10
     '''
-    pass
+    imgs = imgs.astype('float64')
+    imgs_shape = imgs.shape
+    imgs_flat = np.reshape(imgs, [imgs.shape[0], np.prod(imgs_shape[1:])])
+    imgs_standardized = (imgs_flat - np.mean(imgs_flat, axis=0)) / np.std(imgs_flat, axis=0)
+    labels_fixed = labels - 1
+    return imgs_standardized, labels_fixed
+
 
 
 def create_splits(data, y, n_train_samps=3500, n_test_samps=500, n_valid_samps=500, n_dev_samps=500):
@@ -61,7 +68,21 @@ def create_splits(data, y, n_train_samps=3500, n_test_samps=500, n_valid_samps=5
         print(f'Error! Num samples {samps} does not equal num images {len(data)}!')
         return
 
- pass
+    x_train = data[0:n_train_samps]
+    y_train = y[0:n_train_samps]
+
+    x_test = data[n_train_samps:n_train_samps + n_test_samps]
+    y_test = y[n_train_samps:n_train_samps + n_test_samps]
+
+    x_val = data[n_train_samps + n_test_samps:n_train_samps + n_test_samps + n_valid_samps]
+    y_val = y[n_train_samps + n_test_samps:n_train_samps + n_test_samps + n_valid_samps]
+
+    x_dev = data[n_train_samps + n_test_samps + n_valid_samps:n_train_samps + n_test_samps + n_valid_samps + n_dev_samps]
+    y_dev = y[n_train_samps + n_test_samps + n_valid_samps:n_train_samps + n_test_samps + n_valid_samps + n_dev_samps]
+
+    return (x_train, y_train, x_test, y_test, x_val, y_val, x_dev, y_dev)
+
+    
 
 
 def load_stl10(n_train_samps=3500, n_test_samps=500, n_valid_samps=500, n_dev_samps=500):
@@ -82,4 +103,9 @@ def load_stl10(n_train_samps=3500, n_test_samps=500, n_valid_samps=500, n_dev_sa
     x_dev (development samples),
     y_dev (development labels)
     '''
-    pass
+    stl_imgs, stl_labels = load_stl10_dataset.load()
+    stl_imgs_pp, stl_labels_pp = preprocess_stl(stl_imgs, stl_labels)
+    return create_splits(stl_imgs_pp, stl_labels_pp, n_train_samps, n_test_samps, n_valid_samps, n_dev_samps)
+
+
+    
