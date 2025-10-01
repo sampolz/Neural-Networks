@@ -1,6 +1,6 @@
 '''softmax_layer.py
 Constructs, trains, tests single layer neural network with softmax activation function.
-YOUR NAMES HERE
+Teagan Turner and Sam Polyakov
 CS 343: Neural Networks
 Fall 2025
 Project 2: Multilayer Perceptrons
@@ -38,7 +38,7 @@ class SoftmaxLayer:
         -----------
         float. accuracy in range [0, 1]
         '''
-        pass
+        return np.mean(y == y_pred)
 
     def net_in(self, features):
         '''Computes the net input (net weighted sum)
@@ -54,7 +54,7 @@ class SoftmaxLayer:
         -----------
         net_input: ndarray. shape=(N, C)
         '''
-        pass
+        return features @ self.wts + self.b
 
     def one_hot(self, y, num_classes):
         '''One-hot codes the output classes for a mini-batch
@@ -127,7 +127,16 @@ class SoftmaxLayer:
         -----------
         2) Work in indices, not data elements.
         '''
-        pass
+        N, M = features.shape
+        C = len(y)
+
+        rng = np.random.default_rng(seed = r_seed)
+
+        self.wts = rng.normal(loc=0, scale=0.01, size=(M, C))
+        self.b = np.zeros(C, dtype=float)
+
+
+
 
     def predict(self, features):
         '''Predicts the int-coded class value for network inputs ('features').
