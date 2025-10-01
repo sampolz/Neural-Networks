@@ -70,7 +70,10 @@ class SoftmaxLayer:
             e.g. if y = [0, 2, 1] and num_classes (C) = 4 we have:
             [[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0]]
         '''
-        pass
+        N = y.shape[0]
+        Y = np.zeros((N, num_classes), dtype=float)
+        Y[np.arange(N), y.astype(int)] = 1.0
+        return Y
 
     def fit(self, features, y, n_epochs=100, lr=0.0001, mini_batch_sz=256, reg=0, r_seed=None, verbose=2):
         '''Trains the network to data in `features` belonging to the int-coded classes `y`.
@@ -127,17 +130,49 @@ class SoftmaxLayer:
         -----------
         2) Work in indices, not data elements.
         '''
+        rng = np.random.default_rng(seed=r_seed)
         N, M = features.shape
-        C = len(y)
+        C = self.num_output_units
 
-        rng = np.random.default_rng(seed = r_seed)
-
-        self.wts = rng.normal(loc=0, scale=0.01, size=(M, C))
+        self.wts = rng.normal(loc=0.0, scale=0.01, size=(M, C))
         self.b = np.zeros(C, dtype=float)
 
+        loss_hist, acc_hist = [], []
 
+        for epoch in range(n_epochs):
+            idx = rng.permutation(N)
+            Xs = features[idx]
+            ys = y[idx]
 
+            for start in range(0, N, mini_batch_sz):
+                end = min(start + mini_batch_sz, N)
+                Xb = Xs[start:end]
+                yb = ys[start:end]
 
+                logits = self.net_in(Xb)
+                probs  = self.activation(logits)
+                yb_oh  = self.one_hot(yb, C)
+
+                dW, db = self.gradient(Xb, probs, yb_oh, reg=reg)
+
+                self.wts -= lr * dW
+                self.b   -= lr * db
+
+            full_logits = self.net_in(features)
+            full_probs  = self.activation(full_logits)
+            Y_one_hot   = self.one_hot(y, C)
+            epoch_loss  = self.loss(full_probs, Y_one_hot, reg=reg)
+            y_pred      = np.argmax(full_probs, axis=1)
+            epoch_acc   = self.accuracy(y, y_pred)
+
+            loss_hist.append(epoch_loss)
+            acc_hist.append(epoch_acc)
+
+            if verbose and (epoch % 100 == 0):
+                print(f"Epoch {epoch}/{n_epochs} - loss: {epoch_loss:.4f} - acc: {epoch_acc:.4f}")
+
+        return loss_hist, acc_hist
+    
     def predict(self, features):
         '''Predicts the int-coded class value for network inputs ('features').
 
@@ -152,7 +187,9 @@ class SoftmaxLayer:
             Note: You can figure out the predicted class assignments from net_in (i.e. you dont
             need to apply the net activation function — it will not affect the most active neuron).
         '''
-        pass
+        logits = self.net_in(features)
+        probs = self.activation(logits)
+        return np.argmax(probs, axis=1)
 
     def activation(self, net_in):
         '''Applies the softmax activation function on the net_in.
@@ -173,7 +210,9 @@ class SoftmaxLayer:
         - np.sum and np.max have a keepdims optional parameter that might be useful for avoiding
         going from shape=(X, Y) -> (X,). keepdims ensures the result has shape (X, 1).
         '''
-        pass
+        z = net_in - np.max(net_in, axis=1, keepdims=True)
+        z = np.exp(z)
+        return z / np.sum(z, axis=1, keepdims=True)
 
     def loss(self, net_act, y, reg=0):
         '''Computes the cross-entropy loss
@@ -198,7 +237,15 @@ class SoftmaxLayer:
         - NO FOR LOOPS!
         - Remember to add on the regularization term, which has a 1/2 in front of it.
         '''
-        pass
+        l2 = 0.5 * reg * np.sum(self.wts * self.wts)
+        if y.ndim == 1: 
+            N = y.shape[0]
+            ce = -np.mean(np.log(net_act[np.arange(N), y]))
+        else:
+            N = y.shape[0]
+            ce = -np.sum(y * np.log(net_act)) / N
+
+        return ce + l2
 
     def gradient(self, features, net_act, y, reg=0):
         '''Computes the gradient of the softmax version of the net
@@ -222,7 +269,11 @@ class SoftmaxLayer:
         - NO FOR LOOPS!
         - Don't forget regularization!!!! (Weights only, not for bias)
         '''
-        pass
+        N = features.shape[0]
+        err = (net_act - y) / N
+        dW = features.T @ err + reg * self.wts
+        db = np.sum(err, axis=0)
+        return dW, db
 
     def test_loss(self, wts, b, features, labels):
         ''' Tester method for net_in and loss
