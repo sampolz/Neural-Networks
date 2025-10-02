@@ -188,8 +188,7 @@ class SoftmaxLayer:
             need to apply the net activation function — it will not affect the most active neuron).
         '''
         logits = self.net_in(features)
-        probs = self.activation(logits)
-        return np.argmax(probs, axis=1)
+        return np.argmax(logits, axis=1)
 
     def activation(self, net_in):
         '''Applies the softmax activation function on the net_in.
