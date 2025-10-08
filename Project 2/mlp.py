@@ -1,6 +1,6 @@
 '''mlp.py
 Constructs, trains, tests 2 layer multilayer layer perceptron networks
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS 343: Neural Networks
 Fall 2025
 Project 2: Multilayer Perceptrons

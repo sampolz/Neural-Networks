@@ -236,12 +236,14 @@ class SoftmaxLayer:
         - NO FOR LOOPS!
         - Remember to add on the regularization term, which has a 1/2 in front of it.
         '''
+        N = y.shape[0]
         l2 = 0.5 * reg * np.sum(self.wts * self.wts)
+
+        #l2 = 0.5 * reg * np.sum(self.wts * self.wts) / N
         if y.ndim == 1: 
-            N = y.shape[0]
             ce = -np.mean(np.log(net_act[np.arange(N), y]))
         else:
-            N = y.shape[0]
+
             ce = -np.sum(y * np.log(net_act)) / N
 
         return ce + l2
@@ -270,7 +272,8 @@ class SoftmaxLayer:
         '''
         N = features.shape[0]
         err = (net_act - y) / N
-        dW = features.T @ err + reg * self.wts
+        #dW = features.T @ err + reg * self.wts
+        dW = features.T @ err + (reg / N) * self.wts
         db = np.sum(err, axis=0)
         return dW, db
 
