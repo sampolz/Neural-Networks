@@ -66,7 +66,14 @@ class MLP:
           - For bias shapes, they should equal the number of units in the associated layer.
             for example: self.y_b has shape (H,)
         '''
-        pass
+        if r_seed is not None:
+            np.random.seed(int(r_seed))
+
+        self.y_wts = np.random.normal(0.0, std, size=(M, H))
+        self.z_wts = np.random.normal(0.0, std, size=(H, C))
+
+        self.y_b = np.zeros(H)
+        self.z_b = np.zeros(C)
 
     def accuracy(self, y, y_pred):
         '''Computes the accuracy of classified samples. Proportion correct
@@ -80,7 +87,7 @@ class MLP:
         -----------
         float. accuracy in range [0, 1]
         '''
-        pass
+        return np.mean(y == y_pred)
 
     def one_hot(self, y, num_classes):
         '''One-hot codes the output classes for a mini-batch
@@ -96,7 +103,10 @@ class MLP:
             e.g. if y = [0, 2, 1] and num_classes = 4 we have:
             [[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0]]
         '''
-        pass
+        N = y.shape[0]
+        y_one_hot = np.zeros((N, num_classes))
+        y_one_hot[np.arange(N), y] = 1.0
+        return y_one_hot
 
     def predict(self, features):
         '''Predicts the int-coded class value for network inputs ('features').
@@ -114,7 +124,11 @@ class MLP:
             NOTE: You can figure out the predicted class assignments without applying the
             softmax net activation function — it will not affect the most active neuron.
         '''
-        pass
+        y_net_in = features @ self.y_wts + self.y_b  
+        y_net_act = np.maximum(0.0, y_net_in)        
+        z_net_in = y_net_act @ self.z_wts + self.z_b
+
+        return np.argmax(z_net_in, axis=1)
 
     def forward(self, features, y, reg=0):
         '''Performs a forward pass of the net (input -> hidden -> output).
@@ -149,7 +163,23 @@ class MLP:
         - To regularize loss for multiple layers, you add the usual regularization to the loss
           from each set of weights (i.e. 2 in this case).
         '''
-        pass
+        y_net_in = features @ self.y_wts + self.y_b            
+        y_net_act = np.maximum(0.0, y_net_in)         
+
+        z_net_in = y_net_act @ self.z_wts + self.z_b           
+        z_shift = z_net_in - np.max(z_net_in, axis=1, keepdims=True)
+        exp_scores = np.exp(z_shift)
+        z_net_act = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+
+        N = features.shape[0]
+        y = np.asarray(y, dtype=int).ravel()
+
+        correct_logprobs = -np.log(z_net_act[np.arange(N), y] + 1e-12) # idk what the 1e-12 thing is, prob dont need
+        data_loss = np.mean(correct_logprobs)
+
+        reg_loss = 0.5 * reg * (np.sum(self.y_wts * self.y_wts) + np.sum(self.z_wts * self.z_wts))
+        loss = data_loss + reg_loss
+        return y_net_in, y_net_act, z_net_in, z_net_act, loss
 
     def backward(self, features, y, y_net_in, y_net_act, z_net_in, z_net_act, reg=0):
         '''Performs a backward pass (output -> hidden -> input) during training to update the weights. This function
