@@ -66,11 +66,10 @@ class MLP:
           - For bias shapes, they should equal the number of units in the associated layer.
             for example: self.y_b has shape (H,)
         '''
-        if r_seed is not None:
-            np.random.seed(int(r_seed))
+        rng = np.random.default_rng(r_seed)
 
-        self.y_wts = np.random.normal(0.0, std, size=(M, H))
-        self.z_wts = np.random.normal(0.0, std, size=(H, C))
+        self.y_wts = rng.normal(0.0, std, size=(M, H))
+        self.z_wts = rng.normal(0.0, std, size=(H, C))
 
         self.y_b = np.zeros(H)
         self.z_b = np.zeros(C)
@@ -174,7 +173,7 @@ class MLP:
         N = features.shape[0]
         y = np.asarray(y, dtype=int).ravel()
 
-        correct_logprobs = -np.log(z_net_act[np.arange(N), y] + 1e-12) # idk what the 1e-12 thing is, prob dont need
+        correct_logprobs = -np.log(z_net_act[np.arange(N), y] + 1e-12)
         data_loss = np.mean(correct_logprobs)
 
         reg_loss = 0.5 * reg * (np.sum(self.y_wts * self.y_wts) + np.sum(self.z_wts * self.z_wts))
