@@ -173,7 +173,7 @@ class MLP:
         N = features.shape[0]
         y = np.asarray(y, dtype=int).ravel()
 
-        correct_logprobs = -np.log(z_net_act[np.arange(N), y] + 1e-12)
+        correct_logprobs = -np.log(z_net_act[np.arange(N), y])
         data_loss = np.mean(correct_logprobs)
 
         reg_loss = 0.5 * reg * (np.sum(self.y_wts * self.y_wts) + np.sum(self.z_wts * self.z_wts))
