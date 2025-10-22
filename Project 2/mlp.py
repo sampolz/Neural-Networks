@@ -213,7 +213,25 @@ class MLP:
         NOTE:
         - Regularize each layer's weights like usual.
         '''
-        pass
+        N = features.shape[0]
+        y_one_hot = self.one_hot(y, self.num_output_units)
+        dz_net_in = (z_net_act - y_one_hot) / N
+
+        dz_wts = y_net_act.T @ dz_net_in
+        dz_b = np.sum(dz_net_in, axis=0)
+
+        dz_wts += reg * self.z_wts
+
+        dy_net_act = dz_net_in @ self.z_wts.T
+
+        dy_net_in = dy_net_act * (y_net_in > 0)
+
+        dy_wts = features.T @ dy_net_in
+        dy_b = np.sum(dy_net_in, axis=0)
+
+        dy_wts += reg * self.y_wts
+
+        return dy_wts, dy_b, dz_wts, dz_b
 
     def fit(self, features, y, x_validation, y_validation, n_epochs=500, lr=0.0001, mini_batch_sz=256, reg=0,
             r_seed=None, verbose=2, print_every=100):
@@ -275,7 +293,59 @@ class MLP:
         2) As in `SoftmaxLayer`, loss on training set should be recorded for each mini-batch of training.
         3) Every `print_every` iterations, print out (if `verbose` is `True`):
         '''
-        pass
+        N = features.shape[0]
+        rng = np.random.default_rng(r_seed)
+        if r_seed is not None:
+            self.initialize_wts(self.num_input_units, self.num_hidden_units, self.num_output_units, r_seed=r_seed)
+
+        loss_history = []
+        train_acc_history = []
+        validation_acc_history = []
+
+        iters_per_epoch = max(1, (N + mini_batch_sz - 1) // mini_batch_sz)
+
+        if verbose > 0:
+            print(f"Starting to train network...There will be {n_epochs} epochs and "
+                f"{n_epochs * iters_per_epoch} iterations total, {iters_per_epoch} iter/epoch.")
+
+        for epoch in range(n_epochs):
+            indices = rng.permutation(N)
+
+            for start in range(0, N, mini_batch_sz):
+                end = min(start + mini_batch_sz, N)
+                batch_idx = indices[start:end]
+
+                Xb = features[batch_idx]
+                yb = y[batch_idx]
+
+                y_net_in, y_net_act, z_net_in, z_net_act, loss = self.forward(Xb, yb, reg=reg)
+                loss_history.append(loss)
+
+                dy_wts, dy_b, dz_wts, dz_b = self.backward(Xb, yb, y_net_in, y_net_act, z_net_in, z_net_act, reg=reg)
+
+                self.y_wts -= lr * dy_wts
+                self.y_b   -= lr * dy_b
+                self.z_wts -= lr * dz_wts
+                self.z_b   -= lr * dz_b
+
+            train_pred = self.predict(features)
+            val_pred   = self.predict(x_validation)
+            train_acc  = self.accuracy(y, train_pred)
+            val_acc    = self.accuracy(y_validation, val_pred)
+
+            train_acc_history.append(train_acc)
+            validation_acc_history.append(val_acc)
+
+            if verbose > 0 and (epoch % print_every == 0):
+                print(f"Completed Epoch {epoch}/{n_epochs-1}. "
+                    f"Training loss: {loss_history[-1]:.2f}. "
+                    f"Training acc: {train_acc*100:.2f}%. "
+                    f"Validation acc: {val_acc*100:.2f}%.")
+
+        if verbose > 0:
+            print("Finished training!")
+
+        return loss_history, train_acc_history, validation_acc_history
 
 
 pass
