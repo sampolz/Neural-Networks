@@ -1,7 +1,7 @@
 '''filter_ops.py
 Implements the convolution and max pooling operations.
 Applied to images and other data represented as an ndarray.
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS343: Neural Networks
 Project 3: Convolutional neural networks
 '''
@@ -46,7 +46,19 @@ def conv2_gray(img, kers, verbose=True):
         print('Kernels must be square!')
         return
 
-    pass
+    paddingx = int(np.ceil((ker_x-1)/2))
+    paddingy = int(np.ceil((ker_y-1)/2))
+
+    padded_img = np.pad(img, ((paddingy, paddingy), (paddingx, paddingx)))
+    flipped_kers = np.flip(kers, axis=(1,2))
+    output = np.zeros((n_kers, img_y, img_x), dtype=np.float32)
+
+    for k in range(n_kers):
+        for i in range(img_y):
+            for j in range(img_x):
+                region = padded_img[i:i+ker_y, j:j+ker_x]
+                output[k,i,j] = np.sum(region * flipped_kers[k])
+    return output
 
 
 def conv2(img, kers, verbose=True):
