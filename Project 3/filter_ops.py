@@ -163,8 +163,25 @@ def conv2nn(imgs, kers, bias, verbose=True):
     if n_chans != n_ker_chans:
         print('Number of kernel channels doesnt match input num channels!')
         return
+    
+    if ker_y  > img_y or ker_x > img_x:
+        print('Kernel size must be smaller than the image')
+        return
 
-    pass
+    paddingx = int(np.ceil((ker_x-1)/2))
+    paddingy = int(np.ceil((ker_y-1)/2))
+
+    padded_img = np.pad(imgs, ((0,0), (0,0), (paddingy, paddingy), (paddingx, paddingx)))
+    flipped_kers = np.flip(kers, axis=(2,3))
+    output = np.zeros((batch_sz, n_kers, img_y, img_x), dtype=np.float32)
+
+    for b in range(batch_sz):
+        for k in range(n_kers):
+            for i in range(img_y):
+                for j in range(img_x):
+                    region = padded_img[b, :, i:i+ker_y, j:j+ker_x]
+                    output[b, k, i, j] = np.sum(region * flipped_kers[k]) + bias[k]
+    return output
 
 
 def get_pooling_out_shape(img_dim, pool_size, strides):
@@ -181,7 +198,8 @@ def get_pooling_out_shape(img_dim, pool_size, strides):
     int. The size in pixels of the output of the image after max pooling is applied, in the dimension
         img_dim.
     '''
-    pass
+    out_shape = int(np.floor((img_dim - pool_size)/ strides) + 1)
+    return out_shape
 
 
 def max_pool(inputs, pool_size=2, strides=1, verbose=True):
@@ -213,7 +231,16 @@ def max_pool(inputs, pool_size=2, strides=1, verbose=True):
     '''
     img_y, img_x = inputs.shape
 
-    pass
+    out_x = get_pooling_out_shape(img_x, pool_size, strides)
+    out_y = get_pooling_out_shape(img_y, pool_size, strides)
+    outputs = np.zeros((out_y, out_x), dtype=np.float32)
+
+    for i in range(out_y):
+        for j in range(out_x):
+            region = inputs[i*strides:i*strides+pool_size, j*strides:j*strides+pool_size]
+            outputs[i, j] = np.max(region)
+
+    return outputs
 
 
 def max_poolnn(inputs, pool_size=2, strides=1, verbose=True):
