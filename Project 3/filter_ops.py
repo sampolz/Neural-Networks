@@ -272,4 +272,22 @@ def max_poolnn(inputs, pool_size=2, strides=1, verbose=True):
     '''
     mini_batch_sz, n_chans, img_y, img_x = inputs.shape
 
-    pass
+    out_x = get_pooling_out_shape(img_x, pool_size, strides)
+    out_y = get_pooling_out_shape(img_y, pool_size, strides)
+
+    if verbose:
+        print(f'mini_batch_sz={mini_batch_sz}, n_chans={n_chans}, img_y={img_y}, img_x={img_x}')
+        print(f'pool_size={pool_size}, strides={strides}, out_y={out_y}, out_x={out_x}')
+
+    outputs = np.zeros((mini_batch_sz, n_chans, out_y, out_x))
+    for b in range(mini_batch_sz):
+        for c in range(n_chans):
+            for i in range(out_y):
+                for j in range(out_x):
+                    start_y = i * strides
+                    start_x = j * strides
+                    region = inputs[b, c, start_y:start_y + pool_size, start_x:start_x + pool_size]
+                    outputs[b, c, i, j] = np.max(region)
+                    
+    return outputs
+
