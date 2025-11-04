@@ -1,6 +1,6 @@
 '''network.py
 Represents  a neural network (collection of layers)
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS343: Neural Networks
 Project 3: Convolutional Neural Networks
 '''

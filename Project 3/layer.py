@@ -104,7 +104,7 @@ class Layer:
         -----------
         No return
         '''
-        pass
+        self.net_act = self.net_in
 
     def relu(self):
         '''Rectified linear activation function. f(x) is defined:
@@ -118,7 +118,7 @@ class Layer:
         -----------
         No return
         '''
-        pass
+        self.net_act = np.maximum(self.net_in, 0)
 
     def softmax(self):
         '''Softmax activation function. See notebook for a refresher on the
@@ -135,7 +135,11 @@ class Layer:
         -----------
         No return
         '''
-        pass
+        shifted = self.net_in - np.max(self.net_in, axis=1, keepdims=True)
+        exp_vals = np.exp(shifted)
+        denom = np.sum(exp_vals, axis=1, keepdims=True)
+        denom[denom == 0] = 1
+        self.net_act = exp_vals / denom
 
     def loss(self, y):
         '''Computes the loss for this layer. Only should be called on the output
@@ -155,7 +159,6 @@ class Layer:
         loss: float. Mean (cross-entropy) loss over the mini-batch.
         '''
         if self.activation == 'softmax':
-            # compute cross-entropy loss
             return self.cross_entropy(y)
 
     def cross_entropy(self, y):
@@ -172,7 +175,12 @@ class Layer:
         -----------
         loss: float. Mean loss over the mini-batch.
         '''
-        pass
+
+        batch_sz = y.shape[0]
+        probs = self.net_act[np.arange(batch_sz), y]
+        probs = np.clip(probs, 1e-12, None)
+        loss = -np.mean(np.log(probs))
+        return loss
 
     def compute_net_in(self):
         '''Computes self.net_in. Always unique to layer type, so subclasses
@@ -187,7 +195,14 @@ class Layer:
         Throw an error if the activation function string is not one that you
         implemented.
         '''
-        pass
+        if self.activation == 'linear':
+            self.linear()
+        elif self.activation == 'relu':
+            self.relu()
+        elif self.activation == 'softmax':
+            self.softmax()
+        else:
+            raise ValueError(f'Unknown activation function {self.activation}')
 
     def forward(self, inputs):
         '''Computes the forward pass through this particular layer.
@@ -238,7 +253,7 @@ class Layer:
         if d_upstream is None:
             d_upstream = self.compute_dlast_net_act()
 
- pass
+    pass
 
     def compute_dlast_net_act(self):
         '''Computes the gradient of the loss function with respect to the last layer's netAct.

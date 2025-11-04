@@ -1,6 +1,6 @@
 '''optimizer.py
 Algorithms to optimize the weights during gradient descent / backprop
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS343: Neural Networks
 Project 3: Convolutional Neural Networks
 '''
