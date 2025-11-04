@@ -256,7 +256,13 @@ class Layer:
         if d_upstream is None:
             d_upstream = self.compute_dlast_net_act()
 
-    pass
+        d_net_in = self.backward_netAct_to_netIn(d_upstream, y)
+        dprev_net_act, d_wts, d_b = self.backward_netIn_to_prevLayer_netAct(d_net_in)
+
+        self.d_wts = d_wts
+        self.d_b = d_b
+
+        return dprev_net_act
 
     def compute_dlast_net_act(self):
         '''Computes the gradient of the loss function with respect to the last layer's netAct.
@@ -300,11 +306,18 @@ class Layer:
 
         '''
         if self.activation == 'relu':
-            pass
+            relu_grad = (self.net_in > 0).astype(d_upstream.dtype, copy=False)
+            d_net_in = d_upstream * relu_grad
         elif self.activation == 'linear':
-            pass
+            d_net_in = d_upstream
         elif self.activation == 'softmax':
-            pass
+            batch_sz = self.net_act.shape[0]
+            d_net_act = np.zeros_like(d_upstream)
+            row_inds = np.arange(batch_sz)
+            d_net_act[row_inds, y] = d_upstream[row_inds, y]
+
+            dot = np.sum(d_net_act * self.net_act, axis=1, keepdims=True)
+            d_net_in = self.net_act * (d_net_act - dot)
         else:
             raise ValueError('Error! Unknown activation function ', self.activation)
         return d_net_in
@@ -599,6 +612,20 @@ class MaxPool2D(Layer):
         '''
         mini_batch_sz, n_chans, img_y, img_x = self.input.shape
         mini_batch_sz_d, n_chans_d, out_y, out_x = d_upstream.shape
+        dprev_net_act = np.zeros_like(self.input)
+
+        for b in range(mini_batch_sz):
+            for c in range(n_chans):
+                for oy in range(out_y):
+                    for ox in range(out_x):
+                        start_y = oy * self.strides
+                        start_x = ox * self.strides
+                        window = self.input[b, c, start_y:start_y + self.pool_size, start_x:start_x + self.pool_size]
+                        max_index = np.argmax(window)
+                        wy, wx = self.ind2sub(max_index, (self.pool_size, self.pool_size))
+                        dprev_net_act[b, c, start_y + wy, start_x + wx] += d_upstream[b, c, oy, ox]
+
+        return dprev_net_act, None, None
 
     def ind2sub(self, linear_ind, sz):
         '''Converts a linear index `linear_ind` to a subscript index based on the window size `sz`
@@ -650,7 +677,8 @@ class Flatten(Layer):
 
         HINT: You have access to the input from forward pass via self.input...
         '''
-        pass
+        dprev_net_act = d_upstream.reshape(self.input.shape)
+        return dprev_net_act, None, None
 
 
 class Dense(Layer):
@@ -739,7 +767,10 @@ class Dense(Layer):
             Shape errors will frequently show up at this backprop stage, one layer down.
         -Regularize your wts
         '''
-        pass
+        d_wts = self.input.T @ d_upstream + self.reg * self.wts
+        d_b = np.sum(d_upstream, axis=0)
+        dprev_net_act = d_upstream @ self.wts.T
+        return dprev_net_act, d_wts, d_b
 
 
 class Dropout(Layer):

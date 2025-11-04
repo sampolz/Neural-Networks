@@ -180,7 +180,9 @@ class Network:
             Remember that the output of layer.backward() becomes the d_upstream to the next layer down.
             We don't care about d_wts, d_b in this method (computed/stored in Layer).
         '''
-        pass
+        d_upstream = None
+        for lyr in reversed(self.layers):
+            d_upstream = lyr.backward(d_upstream, y)
 
     def is_training(self):
         '''Is the CNN currently training?
