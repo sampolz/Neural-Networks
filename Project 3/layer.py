@@ -221,7 +221,10 @@ class Layer:
         -----------
         The net_act.
         '''
-        pass
+        self.input = inputs
+        self.compute_net_in()
+        self.compute_net_act()
+        return self.net_act
 
     def backward(self, d_upstream, y):
         '''Do the backward pass through this layer.
@@ -403,6 +406,15 @@ class Conv2D(Layer):
         '''
         super().__init__(number, name, activation=activation, reg=reg, verbose=verbose)
 
+        if r_seed is not None:
+            rng = np.random.default_rng(r_seed + number)
+        else:
+            rng = np.random.default_rng()
+
+        self.wts = rng.normal(loc=0.0, scale=wt_scale,
+                              size=(n_kers, n_chans, ker_sz, ker_sz))
+        self.b = np.zeros(n_kers)
+
     def compute_net_in(self):
         '''Computes `self.net_in` via convolution.
         Convolve the input tensor with the layer's learned convolution kernels.
@@ -422,7 +434,7 @@ class Conv2D(Layer):
         Hint:
         This should be an easy one-liner, you've done all the hard work last week :)
         '''
-        pass
+        self.net_in = filter_ops.conv2nn(self.input, self.wts, self.b, verbose=self.verbose)
 
     def backward_netIn_to_prevLayer_netAct(self, d_upstream):
         '''Computes backward `dprev_net_act`, `d_wts`, d_b` gradients that gets us
@@ -549,7 +561,7 @@ class MaxPool2D(Layer):
         Hint:
         This should be an easy one-liner, you've done all the hard work last week :)
         '''
-        pass
+        self.net_in = filter_ops.max_poolnn(self.input, pool_size=self.pool_size, strides=self.strides, verbose=self.verbose)
 
     def backward_netIn_to_prevLayer_netAct(self, d_upstream):
         '''Computes the dprev_net_act gradient, getting us thru the MaxPool2D layer to the layer
@@ -617,7 +629,8 @@ class Flatten(Layer):
     def compute_net_in(self):
         '''The net input for the Flatten layer is the input reshaped to be appropriate for processing by a Dense layer.
         '''
-        pass
+        batch_sz = self.input.shape[0]
+        self.net_in = self.input.reshape(batch_sz, -1)
 
     def backward_netIn_to_prevLayer_netAct(self, d_upstream):
         '''Determines the gradient through the Flatten layer. This amounts to reshaping the upstream gradient to have
@@ -688,11 +701,18 @@ class Dense(Layer):
         control the random weight initialization process).
         '''
         super().__init__(number, name, activation=activation, reg=reg, verbose=verbose)
+        if r_seed is not None:
+            rng = np.random.default_rng(r_seed + number)
+        else:
+            rng = np.random.default_rng()
+        self.wts = rng.normal(loc=0.0, scale=wt_scale,
+                              size=(n_units_prev_layer, units)).astype(np.float32)
+        self.b = np.zeros(units, dtype=np.float32)
 
     def compute_net_in(self):
         '''Computes `self.net_in` via Dense dot product of inputs (like in ADALINE/MLP).
         '''
-        pass
+        self.net_in = self.input @ self.wts + self.b
 
     def backward_netIn_to_prevLayer_netAct(self, d_upstream):
         '''Computes the `dprev_net_act`, `d_wts`, `d_b` gradients for a Dense layer.

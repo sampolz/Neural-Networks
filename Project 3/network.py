@@ -134,7 +134,13 @@ class Network:
         2. Compute and get the weight regularization via `self.wt_reg_reduce()` (implement this next)
         4. Return the sum of the loss and the regularization term.
         '''
-        pass
+        activations = inputs
+        for lyr in self.layers:
+            activations = lyr.forward(activations)
+
+        data_loss = self.layers[-1].loss(y)
+        wt_reg = self.wt_reg_reduce()
+        return data_loss + wt_reg
 
     def wt_reg_reduce(self):
         '''Computes the loss weight regularization for all network layers that have weights
@@ -148,7 +154,13 @@ class Network:
         The network regularization `wt_reg` is simply the sum of all the regularization terms
         for each individual layer.
         '''
-        pass
+        wt_reg = 0.0
+        for idx in self.wt_layer_inds:
+            lyr = self.layers[idx]
+            if lyr.wts is None or lyr.reg is None or lyr.reg == 0:
+                continue
+            wt_reg += 0.5 * lyr.reg * np.sum(lyr.wts ** 2)
+        return wt_reg
 
     def backward(self, y):
         '''Initiates the backward pass through all the layers of the network.
@@ -319,3 +331,75 @@ class ConvNet4(Network):
         super().__init__(reg, verbose)
 
         n_chans, h, w = input_shape
+
+        conv_n_kers = n_kers[0]
+        conv_ker_sz = ker_sz[0]
+        pool_sz = pooling_sizes[0]
+        pool_stride = pooling_strides[0]
+        dense_units = dense_interior_units[0]
+
+        conv_layer = layer.Conv2D(
+            number=0,
+            name='Conv2D0',
+            n_kers=conv_n_kers,
+            ker_sz=conv_ker_sz,
+            n_chans=n_chans,
+            wt_scale=wt_scale,
+            activation='relu',
+            reg=reg,
+            r_seed=r_seed,
+            verbose=verbose
+        )
+
+        pool_layer = layer.MaxPool2D(
+            number=1,
+            name='MaxPool2D1',
+            pool_size=pool_sz,
+            strides=pool_stride,
+            activation='linear',
+            verbose=verbose
+        )
+
+        flatten_layer = layer.Flatten(
+            number=2,
+            name='Flatten2',
+            verbose=verbose
+        )
+
+        pooled_h = filter_ops.get_pooling_out_shape(h, pool_sz, pool_stride)
+        pooled_w = filter_ops.get_pooling_out_shape(w, pool_sz, pool_stride)
+        flatten_units = conv_n_kers * pooled_h * pooled_w
+
+        dense_hidden = layer.Dense(
+            number=3,
+            name='Dense3',
+            units=dense_units,
+            n_units_prev_layer=flatten_units,
+            wt_scale=wt_scale,
+            activation='relu',
+            reg=reg,
+            r_seed=r_seed,
+            verbose=verbose
+        )
+
+        dense_out = layer.Dense(
+            number=4,
+            name='Dense4',
+            units=n_classes,
+            n_units_prev_layer=dense_units,
+            wt_scale=wt_scale,
+            activation='softmax',
+            reg=reg,
+            r_seed=r_seed,
+            verbose=verbose
+        )
+
+        self.layers = [
+            conv_layer,
+            pool_layer,
+            flatten_layer,
+            dense_hidden,
+            dense_out
+        ]
+
+        self.wt_layer_inds = [0, 3, 4]
