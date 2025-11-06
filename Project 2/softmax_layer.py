@@ -74,6 +74,8 @@ class SoftmaxLayer:
         Y = np.zeros((N, num_classes), dtype=float)
         Y[np.arange(N), y.astype(int)] = 1.0
         return Y
+    
+    
 
     def fit(self, features, y, n_epochs=100, lr=0.0001, mini_batch_sz=256, reg=0, r_seed=None, verbose=2):
         '''Trains the network to data in `features` belonging to the int-coded classes `y`.

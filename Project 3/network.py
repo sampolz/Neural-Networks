@@ -182,7 +182,10 @@ class Network:
         '''
         d_upstream = None
         for lyr in reversed(self.layers):
-            d_upstream = lyr.backward(d_upstream, y)
+            dprev, d_wts, d_b = lyr.backward(d_upstream, y)
+            d_upstream = dprev
+
+        return d_upstream
 
     def is_training(self):
         '''Is the CNN currently training?

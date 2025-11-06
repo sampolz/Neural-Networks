@@ -92,7 +92,10 @@ class Layer:
             e.g. if y = [0, 2, 1] and num_classes = 4 we have:
             [[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0]]
         '''
-        pass
+        N = y.shape[0]
+        y_one_hot = np.zeros((N, num_classes))
+        y_one_hot[np.arange(N), y] = 1.0
+        return y_one_hot
 
     def linear(self):
         '''Linear activation function: f(x) = x.
@@ -262,7 +265,7 @@ class Layer:
         self.d_wts = d_wts
         self.d_b = d_b
 
-        return dprev_net_act
+        return dprev_net_act, d_wts, d_b
 
     def compute_dlast_net_act(self):
         '''Computes the gradient of the loss function with respect to the last layer's netAct.
@@ -610,9 +613,14 @@ class MaxPool2D(Layer):
                 (x, y)=(0, 1). Check out the provided helper function: ind2sub(self, ind, sz) to convert linear indices
                 to subscripts.
         '''
+
         mini_batch_sz, n_chans, img_y, img_x = self.input.shape
         mini_batch_sz_d, n_chans_d, out_y, out_x = d_upstream.shape
         dprev_net_act = np.zeros_like(self.input)
+
+        # print(f"self.input.shape: {self.input.shape}")
+        # print(f"d_upstream.shape: {d_upstream.shape}")
+        # print(f"dprev_net_act.shape: {dprev_net_act.shape}")
 
         for b in range(mini_batch_sz):
             for c in range(n_chans):
