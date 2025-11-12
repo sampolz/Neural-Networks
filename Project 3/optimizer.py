@@ -61,7 +61,10 @@ class SGD(Optimizer):
         TODO: Write the SGD weight update rule.
         See notebook for review of equations.
         '''
-        pass
+
+        new_wts = self.wts - self.lr * self.d_wts
+        self.wts = new_wts
+        return new_wts.copy()
 
 
 class SGD_Momentum(Optimizer):
@@ -93,6 +96,11 @@ class SGD_Momentum(Optimizer):
         '''
         if self.velocity is None:
             self.velocity = np.zeros_like(self.wts)
+
+        self.velocity = self.m * self.velocity - self.lr * self.d_wts
+        new_wts = self.wts + self.velocity
+        self.wts = new_wts
+        return new_wts.copy()
 
 
 class Adam(Optimizer):
@@ -135,7 +143,22 @@ class Adam(Optimizer):
         - Remember that t should = 1 on the 1st wt update.
         - Remember to update/save the new values of v, p between updates.
         '''
-        pass
+        if self.v is None:
+            self.v = np.zeros_like(self.wts)
+        if self.p is None:
+            self.p = np.zeros_like(self.wts)
+
+        self.t += 1
+
+        self.v = self.beta1 * self.v + (1 - self.beta1) * self.d_wts
+        self.p = self.beta2 * self.p + (1 - self.beta2) * (self.d_wts ** 2)
+
+        v_corr = self.v / (1 - self.beta1 ** self.t)
+        p_corr = self.p / (1 - self.beta2 ** self.t)
+
+        new_wts = self.wts - (self.lr * v_corr) / (np.sqrt(p_corr) + self.eps)
+        self.wts = new_wts
+        return new_wts.copy()
 
 
 def test_sgd():

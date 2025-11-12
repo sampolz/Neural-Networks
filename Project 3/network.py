@@ -230,7 +230,12 @@ class Network:
         pred_classes: ndarray. shape=shape=(num test samples)
             Predicted classes (int coded) derived from the network.
         '''
-        pass
+        activations = inputs
+        for lyr in self.layers:
+            activations = lyr.forward(activations)
+
+        pred_classes = np.argmax(activations, axis=1)
+        return pred_classes
 
     def fit(self, x_train, y_train, x_validate, y_validate, mini_batch_sz=256, n_epochs=1, print_every=10):
         '''Trains the neural network on data
@@ -280,7 +285,57 @@ class Network:
         Also printout the projected time for completing ALL training iterations. (For simplicity, you don't need to
         consider the time taken for computing train and validation accuracy).
         '''
-        pass
+        self.training = True
+        self.loss_history = []
+        self.train_acc_history = []
+        self.validation_acc_history = []
+
+        n_train = x_train.shape[0]
+        n_batches = int(np.ceil(n_train / mini_batch_sz))
+        total_iters = n_epochs * n_batches
+
+        rng = np.random.default_rng()
+
+        iter0_runtime_min = None
+        iter0_projected_min = None
+
+        for epoch in range(n_epochs):
+            perm = rng.permutation(n_train)
+            for batch_idx in range(n_batches):
+                iter_idx = epoch * n_batches + batch_idx
+                start = batch_idx * mini_batch_sz
+                end = min(start + mini_batch_sz, n_train)
+                batch_inds = perm[start:end]
+
+                if iter_idx == 0:
+                    iter_start = time.time()
+
+                x_batch = x_train[batch_inds]
+                y_batch = y_train[batch_inds]
+
+                loss = self.forward(x_batch, y_batch)
+                self.loss_history.append(loss)
+
+                self.backward(y_batch)
+                for lyr in self.layers:
+                    lyr.update_weights()
+
+                if iter_idx == 0:
+                    iter0_runtime_min = (time.time() - iter_start) / 60.0
+                    iter0_projected_min = iter0_runtime_min * total_iters if total_iters > 0 else 0.0
+
+                if iter_idx % print_every == 0:
+                    if iter_idx == 0:
+                        print(f'Iteration 0 runtime: {iter0_runtime_min:.4f} min; projected total: {iter0_projected_min:.4f} min')
+
+                    train_acc = self.accuracy(x_train, y_train)
+                    val_acc = self.accuracy(x_validate, y_validate)
+                    self.train_acc_history.append(train_acc)
+                    self.validation_acc_history.append(val_acc)
+
+                    print(f'Iter {iter_idx}/{total_iters}: loss {loss:.6f}, train acc {train_acc:.4f}, val acc {val_acc:.4f}')
+
+        self.training = False
         return self.loss_history, self.train_acc_history, self.validation_acc_history
 
 
