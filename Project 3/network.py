@@ -408,7 +408,7 @@ class ConvNet4(Network):
             activation='relu',
             reg=reg,
             r_seed=r_seed,
-            verbose=verbose
+            verbose=False #Change this back to debug but was obnoxiously printing during training
         )
 
         pool_layer = layer.MaxPool2D(
@@ -417,13 +417,13 @@ class ConvNet4(Network):
             pool_size=pool_sz,
             strides=pool_stride,
             activation='linear',
-            verbose=verbose
+            verbose=False
         )
 
         flatten_layer = layer.Flatten(
             number=2,
             name='Flatten2',
-            verbose=verbose
+            verbose=False
         )
 
         pooled_h = filter_ops.get_pooling_out_shape(h, pool_sz, pool_stride)

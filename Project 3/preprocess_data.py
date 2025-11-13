@@ -86,7 +86,7 @@ def create_splits(data, y, n_train_samps=3500, n_test_samps=500, n_valid_samps=5
     
 
 
-def load_stl10(n_train_samps=3500, n_test_samps=500, n_valid_samps=500, n_dev_samps=500):
+def load_stl10(n_train_samps=3500, n_test_samps=500, n_valid_samps=500, n_dev_samps=500, scale_fact=3):
     '''Automates the process of:
     - loading in the STL-10 dataset and labels
     - preprocessing
@@ -104,7 +104,7 @@ def load_stl10(n_train_samps=3500, n_test_samps=500, n_valid_samps=500, n_dev_sa
     x_dev (development samples),
     y_dev (development labels)
     '''
-    stl_imgs, stl_labels = load_stl10_dataset.load()
+    stl_imgs, stl_labels = load_stl10_dataset.load(scale_fact=scale_fact)
     stl_imgs_pp, stl_labels_pp = preprocess_stl(stl_imgs, stl_labels)
     return create_splits(stl_imgs_pp, stl_labels_pp, n_train_samps, n_test_samps, n_valid_samps, n_dev_samps)
 
