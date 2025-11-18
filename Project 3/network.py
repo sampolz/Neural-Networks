@@ -9,6 +9,8 @@ import numpy as np
 
 import layer
 import filter_ops
+import accelerated_layer
+
 
 
 class Network:
@@ -412,6 +414,131 @@ class ConvNet4(Network):
         )
 
         pool_layer = layer.MaxPool2D(
+            number=1,
+            name='MaxPool2D1',
+            pool_size=pool_sz,
+            strides=pool_stride,
+            activation='linear',
+            verbose=False
+        )
+
+        flatten_layer = layer.Flatten(
+            number=2,
+            name='Flatten2',
+            verbose=False
+        )
+
+        pooled_h = filter_ops.get_pooling_out_shape(h, pool_sz, pool_stride)
+        pooled_w = filter_ops.get_pooling_out_shape(w, pool_sz, pool_stride)
+        flatten_units = conv_n_kers * pooled_h * pooled_w
+
+        dense_hidden = layer.Dense(
+            number=3,
+            name='Dense3',
+            units=dense_units,
+            n_units_prev_layer=flatten_units,
+            wt_scale=wt_scale,
+            activation='relu',
+            reg=reg,
+            r_seed=r_seed,
+            verbose=verbose
+        )
+
+        dense_out = layer.Dense(
+            number=4,
+            name='Dense4',
+            units=n_classes,
+            n_units_prev_layer=dense_units,
+            wt_scale=wt_scale,
+            activation='softmax',
+            reg=reg,
+            r_seed=r_seed,
+            verbose=verbose
+        )
+
+        self.layers = [
+            conv_layer,
+            pool_layer,
+            flatten_layer,
+            dense_hidden,
+            dense_out
+        ]
+
+        self.wt_layer_inds = [0, 3, 4]
+
+class Conv4NetAccel(Network):
+    '''A minimal convolutional neural network.
+    Makes a ConvNet4 network with the following layers: Conv2D -> MaxPool2D -> Flatten -> Dense -> Dense
+
+    0. Convolution (net-in), Relu (net-act).
+    1. Max pool 2D (net-in), linear (net-act).
+    2. Flatten (net-in), linear (net-act).
+    3. Dense (net-in), Relu (net-act).
+    4. Dense (net-in), soft-max (net-act).
+    '''
+    def __init__(self, input_shape=(3, 32, 32), n_kers=(32,), ker_sz=(7,), dense_interior_units=(100,),
+                 pooling_sizes=(2,), pooling_strides=(2,), n_classes=10, wt_scale=1e-2, reg=0, r_seed=None,
+                 verbose=True):
+        '''ConvNet4 constructor. The job of this method is to build the network as a collection of connected layers
+        (in order) in `self.layers`.
+
+        Parameters:
+        -----------
+        input_shape: tuple. By default: (n_chans, img_y, img_x)
+            Shape of a SINGLE input sample (no mini-batch).
+        n_kers: tuple.
+            Number of kernels/units in the 1st convolution layer. Format is (32,), which is a tuple rather than just an
+            int. The reasoning is that if you wanted to create another Conv2D layer, say with 16 units, n_kers would
+            then be (32, 16). Thus, this format easily allows us to make the net deeper.
+        ker_sz: tuple.
+            x/y size of each convolution filter. Format is (7,), which means make 7x7 filters in the FIRST Conv2D layer.
+            If we had another Conv2D layer with filters size 5x5, it would be ker_sz=(7,5)
+        dense_interior_units: tuple. Same format as above.
+            Number of hidden units in each dense layer.
+            NOTE: Does NOT include the output layer, which has # units = # classes.
+        pooling_sizes: tuple.  Same format as above.
+            Pooling extent in the i-th MaxPool2D layer.
+        pooling_strides: tuple.  Same format as above.
+            Pooling stride in the i-th MaxPool2D layer.
+        n_classes: int.
+            Number of classes in the input. This will become the number of units in the Output Dense layer.
+        wt_scale: float.
+            Global weight scaling to use for all layers with weights
+        reg: float.
+            Regularization strength
+        r_seed: int or None.
+            Random seed for setting weights and bias parameters.
+        verbose: bool. Do we want to term network-related debug print outs on?
+            NOTE: This is different than per-layer verbose settings, which are turned manually on below.
+
+        NOTE:
+        - Remember to define self.wt_layer_inds as the list indicies in self.layers that have weights.
+        - Number your layers starting at 0.
+        '''
+        super().__init__(reg, verbose)
+
+        n_chans, h, w = input_shape
+
+        conv_n_kers = n_kers[0]
+        conv_ker_sz = ker_sz[0]
+        pool_sz = pooling_sizes[0]
+        pool_stride = pooling_strides[0]
+        dense_units = dense_interior_units[0]
+
+        conv_layer = accelerated_layer.Conv2DAccel(
+            number=0,
+            name='Conv2D0',
+            n_kers=conv_n_kers,
+            ker_sz=conv_ker_sz,
+            n_chans=n_chans,
+            wt_scale=wt_scale,
+            activation='relu',
+            reg=reg,
+            r_seed=r_seed,
+            verbose=False #Change this back to debug but was obnoxiously printing during training
+        )
+
+        pool_layer = accelerated_layer.MaxPool2DAccel(
             number=1,
             name='MaxPool2D1',
             pool_size=pool_sz,
