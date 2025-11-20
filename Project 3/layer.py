@@ -813,6 +813,12 @@ class Dropout(Layer):
 
         self.mask = None
 
+        self.rate = rate
+        if r_seed is not None:
+            self.rng = np.random.default_rng(r_seed + number)
+        else:
+            self.rng = np.random.default_rng()
+
     def compute_net_in(self):
         '''Compute the net input of the dropout layer.
 
