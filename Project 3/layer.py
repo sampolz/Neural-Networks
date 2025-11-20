@@ -75,7 +75,7 @@ class Layer:
 
         Hint: Check out the constructor instance variables.
         '''
-        pass
+        self.in_train_mode = in_train_mode
 
     def one_hot(self, y, num_classes):
         '''One-hot codes the output classes for a mini-batch
@@ -833,7 +833,11 @@ class Dropout(Layer):
 
         NOTE: Do NOT use any loops in here! If you do, your net will be needlessly slow.
         '''
-        pass
+        if self.in_train_mode:
+            self.mask = self.rng.uniform(size=self.input.shape) > self.rate
+            self.net_in = self.input * self.mask / (1.0 - self.rate)
+        else:
+            self.net_in = self.input
 
     def backward_netIn_to_prevLayer_netAct(self, d_upstream):
         '''Determines the gradient through the dropout layer.
@@ -853,4 +857,5 @@ class Dropout(Layer):
         NOTE: Nonzero upstream gradients CANNOT flow backward through this layer for neurons whose net_ins were nixed
         going forward.
         '''
-        pass
+        dprev_net_act = d_upstream * self.mask / (1.0 - self.rate)
+        return dprev_net_act, None, None
