@@ -215,7 +215,9 @@ class Network:
         1. Update the network's mode.
         2. Update each of the layer's mode.
         '''
-        pass
+        self.training = training
+        for lyr in self.layers:
+            lyr.set_training_mode(training)
 
     def predict(self, inputs):
         '''Do forward pass thru the net and classfies novel inputs presented to the network.
@@ -232,11 +234,14 @@ class Network:
         pred_classes: ndarray. shape=shape=(num test samples)
             Predicted classes (int coded) derived from the network.
         '''
+        prior_mode = self.is_training()
+        self.set_training_mode(training=False)
         activations = inputs
         for lyr in self.layers:
             activations = lyr.forward(activations)
 
         pred_classes = np.argmax(activations, axis=1)
+        self.set_training_mode(training=prior_mode)
         return pred_classes
 
     def fit(self, x_train, y_train, x_validate, y_validate, mini_batch_sz=256, n_epochs=1, print_every=10):
@@ -287,7 +292,7 @@ class Network:
         Also printout the projected time for completing ALL training iterations. (For simplicity, you don't need to
         consider the time taken for computing train and validation accuracy).
         '''
-        self.training = True
+        self.set_training_mode(training=True)
         self.loss_history = []
         self.train_acc_history = []
         self.validation_acc_history = []
@@ -296,7 +301,7 @@ class Network:
         n_batches = int(np.ceil(n_train / mini_batch_sz))
         total_iters = n_epochs * n_batches
 
-        rng = np.random.default_rng()
+        rng = np.random.default_rng() #Add seed for reproducibility 
 
         iter0_runtime_min = None
         iter0_projected_min = None
@@ -337,7 +342,7 @@ class Network:
 
                     print(f'Iter {iter_idx}/{total_iters}: loss {loss:.6f}, train acc {train_acc:.4f}, val acc {val_acc:.4f}')
 
-        self.training = False
+        self.set_training_mode(training=False)
         return self.loss_history, self.train_acc_history, self.validation_acc_history
 
 
@@ -698,7 +703,7 @@ class ConvNet4AccelV2(Network):
         dropout_layer = layer.Dropout(
             number=4,
             name='Dropout4',
-            dropout_rate=dropout_rate,
+            rate=dropout_rate,
             r_seed=r_seed,
             verbose=verbose
         )

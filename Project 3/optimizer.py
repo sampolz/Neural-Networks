@@ -159,6 +159,66 @@ class Adam(Optimizer):
         new_wts = self.wts - (self.lr * v_corr) / (np.sqrt(p_corr) + self.eps)
         self.wts = new_wts
         return new_wts.copy()
+    
+
+class AdamW(Optimizer):
+    '''Update weights using the Adam update rule.
+    '''
+    def __init__(self, lr=0.001, reg = 0.0, beta1=0.9, beta2=0.999, eps=1e-8, t=0):
+        '''Adam optimizer constructor
+
+        Parameters:
+        -----------
+        lr: float > 0. Learning rate.
+        beta1: float. 0 < beta1 < 1. Amount of momentum from gradient on last time step.
+        beta2: float. 0 < beta2 < 1. Amount of momentum from gradient on last time step.
+        eps: float. Small number to prevent division by 0.
+        t: int. Records the current time step: 0, 1, 2, ....
+        '''
+        self.lr = lr
+        self.reg = reg
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.eps = eps
+        self.t = t
+
+        self.v = None
+        self.p = None
+
+    def update_weights(self):
+        '''Updates the weights according to Adam and returns a
+        COPY of the updated weights for this time step.
+
+        Returns:
+        -----------
+        The updated weights for this time step.
+
+        TODO: Write the Adam update rule
+        See notebook for review of equations.
+
+        Hints:
+        -----------
+        - Remember to initialize v and p.
+        - Remember that t should = 1 on the 1st wt update.
+        - Remember to update/save the new values of v, p between updates.
+        '''
+        if self.v is None:
+            self.v = np.zeros_like(self.wts)
+        if self.p is None:
+            self.p = np.zeros_like(self.wts)
+
+        self.t += 1
+
+        self.v = self.beta1 * self.v + (1 - self.beta1) * self.d_wts
+        self.p = self.beta2 * self.p + (1 - self.beta2) * (self.d_wts ** 2)
+
+        v_corr = self.v / (1 - self.beta1 ** self.t)
+        p_corr = self.p / (1 - self.beta2 ** self.t)
+
+        new_wts = self.wts - (self.lr * v_corr) / (np.sqrt(p_corr) + self.eps)
+        new_wts = new_wts - self.lr * self.reg * self.wts
+        self.wts = new_wts
+        return new_wts.copy()
 
 
 def test_sgd():
