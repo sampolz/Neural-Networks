@@ -202,7 +202,6 @@ class DeepDream:
         cur_img = gen_img
 
         for scale in range(1, n_scales + 1):
-            # Run DeepDream at the current scale (disable inner plotting/exporting)
             loss_hist = self.fit(cur_img, n_epochs=n_epochs, lr=lr, print_every=n_epochs + 1,
                                  plot=False, export=False)
             total_loss_history.extend(loss_hist)
@@ -228,7 +227,6 @@ class DeepDream:
                     tf.keras.preprocessing.image.save_img(filename, img_uint8)
 
             if scale < n_scales:
-                # Resize image for next scale and re-wrap as tf.Variable
                 cur_size = tf.shape(cur_img)[1:3]
                 new_size = tf.cast(tf.round(tf.cast(cur_size, tf.float32) * scale_factor), tf.int32)
                 resized = tf.image.resize(cur_img, size=new_size, method='bilinear')
