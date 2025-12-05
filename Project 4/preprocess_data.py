@@ -28,7 +28,7 @@ def preprocess_stl(imgs, labels):
     4) Fix class labeling. Should span 0, 1, ..., 9 NOT 1,2,...10
     '''
     imgs = imgs.astype('float64')
-    imgs = np.transpose(imgs, (0, 3, 1, 2))
+    # imgs = np.transpose(imgs, (0, 3, 1, 2))
     mean = np.mean(imgs, axis=0, keepdims=True)
     std = np.std(imgs, axis=0, keepdims=True)
     imgs_standardized = (imgs - mean) / std
