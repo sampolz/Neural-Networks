@@ -30,6 +30,10 @@ class DeepDream:
         1. Define instance variables for the pretrained network and the number of selected layers used to readout netAct.
         2. Make an readout model for the selected layers (use function in `tf_util`) and assign it as an instance variable.
         '''
+        self.pretrained_net = pretrained_net
+        self.selected_layers_names = selected_layers_names
+        self.n_selected_layers = len(selected_layers_names)
+        self.readout_model = tf_util.make_readout_model(pretrained_net, selected_layers_names)
         self.loss_history = None
 
     def loss_layer(self, layer_net_acts):
@@ -45,7 +49,7 @@ class DeepDream:
         -----------
         loss component from current layer. float. Mean of all the netAct values in the current layer.
         '''
-        pass
+        return tf.reduce_mean(layer_net_acts)
 
     def forward(self, gen_img, standardize_grads=True, eps=1e-8):
         '''Performs forward pass through the pretrained network with the generated image `gen_img`.
@@ -71,7 +75,20 @@ class DeepDream:
         Then:
         - Obtain the tracked gradients of the loss with respect to the generated image.
         '''
-        pass
+        with tf.GradientTape() as tape:
+            tape.watch(gen_img)
+            net_acts = self.readout_model(gen_img)
+            layer_losses = [self.loss_layer(act) for act in net_acts]
+            loss = tf.add_n(layer_losses) / self.n_selected_layers
+
+        grads = tape.gradient(loss, gen_img)
+
+        if standardize_grads:
+            mean = tf.reduce_mean(grads)
+            std = tf.math.reduce_std(grads)
+            grads = (grads - mean) / (std + eps)
+
+        return loss, grads
 
     def fit(self, gen_img, n_epochs=26, lr=0.01, print_every=25, plot=True, plot_fig_sz=(5, 5), export=True):
         '''Iteratively modify the generated image (`gen_img`) for `n_epochs` with the image gradients using the
@@ -109,7 +126,37 @@ class DeepDream:
         in the sign of the gradients.
         - Clipping is different than normalization!
         '''
-        pass
+        self.loss_history = []
+        t0 = time.time()
+        first_epoch_time = None
+
+        for epoch in range(1, n_epochs + 1):
+            loss, grads = self.forward(gen_img, standardize_grads=True, eps=1e-8)
+            gen_img.assign(tf.clip_by_value(gen_img + lr * grads, 0.0, 1.0))
+
+            self.loss_history.append(float(loss))
+
+            if first_epoch_time is None:
+                first_epoch_time = time.time() - t0
+                est_total_min = (first_epoch_time * n_epochs) / 60.0
+                print(f'First epoch took {first_epoch_time:.2f}s; est total {est_total_min:.2f} min')
+
+            if epoch % print_every == 0 or epoch == 1:
+                print(f'Epoch {epoch}/{n_epochs}, loss={float(loss):.4f}')
+                if plot:
+                    plt.figure(figsize=plot_fig_sz)
+                    plt.imshow(tf.squeeze(gen_img).numpy())
+                    plt.axis('off')
+                    plt.show()
+
+                if export:
+                    tf.io.gfile.makedirs('deep_dream_output')
+                    img = tf.squeeze(gen_img)
+                    img_uint8 = tf.image.convert_image_dtype(img, dtype=tf.uint8)
+                    filename = f'deep_dream_output/image_{epoch}.jpg'
+                    tf.keras.preprocessing.image.save_img(filename, img_uint8)
+
+        return self.loss_history
 
     def fit_multiscale(self, gen_img, n_scales=4, scale_factor=1.3, n_epochs=26, lr=0.01, print_every=1, plot=True,
                        plot_fig_sz=(5, 5), export=True):
@@ -148,4 +195,44 @@ class DeepDream:
         3. After the first scale completes, always print out how long it took to finish the first scale and an estimate
         of how long it will take to complete all the scales (in minutes).
         '''
-        pass
+        total_loss_history = []
+        t0 = time.time()
+        first_scale_time = None
+
+        cur_img = gen_img
+
+        for scale in range(1, n_scales + 1):
+            # Run DeepDream at the current scale (disable inner plotting/exporting)
+            loss_hist = self.fit(cur_img, n_epochs=n_epochs, lr=lr, print_every=n_epochs + 1,
+                                 plot=False, export=False)
+            total_loss_history.extend(loss_hist)
+
+            if first_scale_time is None:
+                first_scale_time = time.time() - t0
+                est_total_min = (first_scale_time * n_scales) / 60.0
+                print(f'First scale took {first_scale_time:.2f}s; est total {est_total_min:.2f} min')
+
+            if scale % print_every == 0 or scale == 1:
+                print(f'Scale {scale}/{n_scales}, loss={float(loss_hist[-1]):.4f}')
+                if plot:
+                    plt.figure(figsize=plot_fig_sz)
+                    plt.imshow(tf.squeeze(cur_img).numpy())
+                    plt.axis('off')
+                    plt.show()
+
+                if export:
+                    tf.io.gfile.makedirs('deep_dream_output')
+                    img = tf.squeeze(cur_img)
+                    img_uint8 = tf.image.convert_image_dtype(img, dtype=tf.uint8)
+                    filename = f'deep_dream_output/image_scale_{scale}.jpg'
+                    tf.keras.preprocessing.image.save_img(filename, img_uint8)
+
+            if scale < n_scales:
+                # Resize image for next scale and re-wrap as tf.Variable
+                cur_size = tf.shape(cur_img)[1:3]
+                new_size = tf.cast(tf.round(tf.cast(cur_size, tf.float32) * scale_factor), tf.int32)
+                resized = tf.image.resize(cur_img, size=new_size, method='bilinear')
+                cur_img = tf.Variable(resized)
+
+        self.loss_history = total_loss_history
+        return self.loss_history

@@ -23,7 +23,15 @@ def load_pretrained_net(net_name='vgg19'):
 
     NOTE: Pretrained net should NOT be trainable and NOT include the output layer.
     '''
-    pass
+    net_name = net_name.lower()
+
+    if net_name == 'vgg19':
+        pretrained_net = tf.keras.applications.VGG19(include_top=False, weights='imagenet')
+    else:
+        raise ValueError(f'Unsupported pretrained network: {net_name}')
+
+    pretrained_net.trainable = False
+    return pretrained_net
 
 
 def get_all_layer_strs(pretrained_net):
@@ -37,7 +45,7 @@ def get_all_layer_strs(pretrained_net):
     -----------
     Python list of str. Length is the number of layers in the pretrained network.
     '''
-    pass
+    return [layer.name for layer in pretrained_net.layers]
 
 def filter_layer_strs(layer_names, match_str='conv4'):
     '''Extracts the layer name strs from `layer_names` (the complete list) that have `match_str` in the name.
@@ -51,7 +59,7 @@ def filter_layer_strs(layer_names, match_str='conv4'):
     -----------
     Python list of str. The list of layers from `layer_names` that include the string `match_str`
     '''
-    pass
+    return [name for name in layer_names if match_str in name]
 
 
 def preprocess_image2tf(img, as_var):
@@ -68,7 +76,9 @@ def preprocess_image2tf(img, as_var):
 
     NOTE: Notice the addition of the leading singleton batch dimension in the tf tensor returned.
     '''
-    pass
+    tensor = tf.convert_to_tensor(img, dtype=tf.float32)
+    tensor = tf.expand_dims(tensor, axis=0)
+    return tf.Variable(tensor)
 
 
 def make_readout_model(pretrained_net, layer_names):
@@ -86,7 +96,8 @@ def make_readout_model(pretrained_net, layer_names):
     tf.keras.Model object (readout model) that provides a readout of the netAct values in the selected layer list
         (`layer_names`).
     '''
-    pass
+    outputs = [pretrained_net.get_layer(name).output for name in layer_names]
+    return tf.keras.Model(inputs=pretrained_net.input, outputs=outputs)
 
 
 def tf2image(tensor):
