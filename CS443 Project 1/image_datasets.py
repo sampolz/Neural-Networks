@@ -48,7 +48,54 @@ def get_dataset(name, norm_method='global', flatten=True, eps=1e-10, verbose=Tru
     (otherwise the exact same feature values would get mapped differently between the train and test sets, which is not
     good).
     '''
-    pass
+    name = name.lower()
+    norm_method = norm_method.lower()
+
+    if name == 'cifar10':
+        (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
+    elif name == 'mnist':
+        (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+    else:
+        raise ValueError(f'Unsupported dataset "{name}". Supported options: "mnist", "cifar10".')
+
+    x_train = tf.cast(x_train, tf.float32) / 255.0
+    x_test = tf.cast(x_test, tf.float32) / 255.0
+
+    if len(x_train.shape) == 3:
+        x_train = tf.expand_dims(x_train, axis=-1)
+        x_test = tf.expand_dims(x_test, axis=-1)
+
+    y_train = tf.cast(tf.reshape(y_train, [-1]), tf.int32)
+    y_test = tf.cast(tf.reshape(y_test, [-1]), tf.int32)
+
+    n_chans = x_train.shape[-1]
+    x_train_flat = tf.reshape(x_train, [-1, n_chans])
+    train_mean, train_var = tf.nn.moments(x_train_flat, axes=[0])
+    train_mean = tf.reshape(train_mean, [1, 1, 1, n_chans])
+    train_std = tf.reshape(tf.sqrt(train_var), [1, 1, 1, n_chans])
+
+    if norm_method == 'global':
+        x_train = (x_train - train_mean) / (train_std + eps)
+        x_test = (x_test - train_mean) / (train_std + eps)
+    elif norm_method == 'center':
+        x_train = x_train - train_mean
+        x_test = x_test - train_mean
+    elif norm_method == 'none':
+        pass
+    else:
+        raise ValueError('Unsupported norm_method. Use one of: "global", "center", "none".')
+
+    if flatten:
+        x_train = tf.reshape(x_train, [tf.shape(x_train)[0], -1])
+        x_test = tf.reshape(x_test, [tf.shape(x_test)[0], -1])
+
+    if verbose:
+        print(f'Loaded dataset: {name}')
+        print(f'{x_train.shape=} {y_train.shape=}')
+        print(f'{x_test.shape=} {y_test.shape=}')
+        print(f'{x_train.dtype=} {y_train.dtype=} {x_test.dtype=} {y_test.dtype=}')
+
+    return x_train, y_train, x_test, y_test
 
 
 def train_val_split(x_train, y_train, prop_val=0.1):

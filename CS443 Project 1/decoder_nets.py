@@ -1,6 +1,6 @@
 '''hebb_net.py
 Artificial neural networks that decoder signals encoding in the activations of the Hebbian network.
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS 443: Bio-Inspired Machine Learning
 Project 1: Hebbian Learning
 '''
