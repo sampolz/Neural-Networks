@@ -306,11 +306,14 @@ class Dense(Layer):
         TODO: Set the parameters as instance variables. Call the superclass constructor to handle setting instance vars
         the child has in common with the parent class.
         '''
-        pass
+        super().__init__(name, activation, prev_layer_or_block, do_group_norm=do_group_norm)
+        self.units = units
+        self.wt_scale = wt_scale
+        self.wt_init = wt_init
 
     def has_wts(self):
         '''Returns whether the Dense layer has weights. This is always true so always return... :)'''
-        pass
+        return True
 
     def init_params(self, input_shape):
         '''Initializes the Dense layer's weights and biases.
@@ -328,7 +331,12 @@ class Dense(Layer):
         element of input_shape. This may sound silly, but doing this will prevent you from having to modify this method
         later in the semester :)
         '''
-        pass
+        num_inputs = input_shape[-1]
+        self.wts = tf.Variable(
+            tf.random.normal(shape=(num_inputs, self.units), mean=0.0, stddev=self.wt_scale),
+            trainable=True
+        )
+        self.b = tf.Variable(tf.zeros(shape=(self.units,)), trainable=True)
 
     def compute_net_input(self, x):
         '''Computes the net input for the current Dense layer.
@@ -346,7 +354,9 @@ class Dense(Layer):
         NOTE: This layer uses lazy initialization. This means that if the wts are currently None when we enter this
         method, we should call `init_params` to initialize the parameters!
         '''
-        pass
+        if self.wts is None:
+            self.init_params(x.shape)
+        return tf.matmul(x, self.wts) + self.b
 
     def compute_group_norm(self, net_in, eps=0.001):
         '''Computes group normalization for the input tensor. Group normalization normalizes the activations among
@@ -400,7 +410,8 @@ class Dropout(Layer):
         TODO: Set the parameters as instance variables. Call the superclass constructor to handle setting instance vars
         the child has in common with the parent class.
         '''
-        pass
+        super().__init__(name, 'linear', prev_layer_or_block)
+        self.rate = rate
 
     def compute_net_input(self, x):
         '''Computes the net input for the current Dropout layer.
@@ -422,7 +433,11 @@ class Dropout(Layer):
         axes when working with shapes. For example, blah.shape[2] is considered hard coding because blah may not always
         have an axis 2.
         '''
-        pass
+        return tf.cond(
+            self.is_training,
+            lambda: tf.nn.dropout(x, rate=self.rate),
+            lambda: x
+        )
 
     def __str__(self):
         '''This layer's "ToString" method. Feel free to customize if you want to make the layer description fancy,
@@ -449,7 +464,7 @@ class Flatten(Layer):
         TODO: Set the parameters as instance variables. Call the superclass constructor to handle setting instance vars
         the child has in common with the parent class.
         '''
-        pass
+        super().__init__(name, 'linear', prev_layer_or_block)
 
     def compute_net_input(self, x):
         '''Computes the net input for the current Flatten layer.
@@ -470,7 +485,7 @@ class Flatten(Layer):
         - While the shape of the input `x` will usually be 4D, it is better to not hard-code this just in case.
         For example, do NOT do compute the number of non-batch inputs as x.shape[1]*x.shape[2]*x.shape[3]
         '''
-        pass
+        return tf.reshape(x, [tf.shape(x)[0], -1])
 
     def __str__(self):
         '''This layer's "ToString" method. Feel free to customize if you want to make the layer description fancy,
