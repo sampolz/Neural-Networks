@@ -123,7 +123,17 @@ def train_val_split(x_train, y_train, prop_val=0.1):
     y_val: tf.int32 tensor. shape=(N_val,)
         Validation set labels
     '''
-    pass
+    n_samples = tf.shape(x_train)[0]
+    n_val = tf.cast(tf.cast(n_samples, tf.float32) * prop_val, tf.int32)
+    split_idx = n_samples - n_val
+
+    x_val = x_train[split_idx:]
+    y_val = y_train[split_idx:]
+
+    x_train = x_train[:split_idx]
+    y_train = y_train[:split_idx]
+
+    return x_train, y_train, x_val, y_val
 
 
 def preprocess_nonlinear(x, n=4.0):
