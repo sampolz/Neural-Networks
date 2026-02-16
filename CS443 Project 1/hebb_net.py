@@ -1,6 +1,6 @@
 '''hebb_net.py
 Bio-inspired neural network that implements the Hebbian learning rule and competition among neurons in the network
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS 443: Bio-Inspired Machine Learning
 Project 1: Hebbian Learning
 '''
@@ -55,10 +55,10 @@ class HebbNet:
             print('Loaded stored wts.')
         else:
             # TODO: Initialize the weights
-            pass
+            self.wts = tf.random.normal(shape=(num_features, num_neurons), stddev=1.0)
     def get_wts(self):
         '''Returns the Hebbian network wts'''
-        pass
+        return self.wts
 
     def set_wts(self, wts):
         '''Replaces the Hebbian network weights with `wts` passed in as a parameter.
@@ -68,7 +68,7 @@ class HebbNet:
         wts: tf.float32 tensor. shape=(M, H).
             New Hebbian network weights.
         '''
-        pass
+        self.wts = wts
 
     def net_in(self, x):
         '''Computes the Hebbian network Dense net_in based on the data `x`.
@@ -82,7 +82,7 @@ class HebbNet:
         tf.float32 tensor. shape=(B, H).
             netIn
         '''
-        pass
+        return x @ self.wts
 
     def net_act(self, net_in):
         '''Compute the Hebbian network activation, which is a function that reflects competition among the neurons
