@@ -50,6 +50,9 @@ class HebbNet:
             distribution (stddev = 1.0). shape=(M, H). Should NOT be a `tf.Variable` because we are not tracking
             gradients here.
         '''
+        self.k = k
+        self.inhib_value = inhib_value
+        self.saved_wts_path = saved_wts_path
         if load_wts:
             self.wts = tf.constant(np.load(saved_wts_path))
             print('Loaded stored wts.')
@@ -110,7 +113,17 @@ class HebbNet:
         arange indexing.
         - += is a valid TensorFlow operator.
         '''
-        pass
+        max_indices = tf.math.argmax(net_in, axis=1, output_type=tf.int32)
+        row_indices = tf.range(start = 0, limit=tf.shape(net_in)[0], delta = 1)
+        rc_indices = tf.stack([row_indices, max_indices], axis=1)
+        winner = tf.scatter_nd(indices=rc_indices, updates=tf.ones(rc_indices.shape[0]), shape=net_in.shape)
+
+        kth_indices = tf.math.top_k(net_in, k=self.k).indices[:, self.k-1]
+        kth_rc_indices = tf.stack([row_indices, kth_indices], axis=1)
+        kth_place = tf.scatter_nd(indices=kth_rc_indices, updates=tf.fill([kth_rc_indices.shape[0]], tf.cast(self.inhib_value, tf.float32)), shape=net_in.shape)
+        net_act = winner + kth_place
+        return net_act
+    
 
     def update_wts(self, x, net_in, net_act, lr, eps=1e-10):
         '''Update the Hebbian network wts according to a modified Hebbian learning rule (competitive Oja's rule).
