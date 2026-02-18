@@ -143,7 +143,13 @@ class HebbNet:
         appropriate operation (elementwise multiplication vs matrix multiplication).
         - The `keepdims` keyword argument may be convenient here.
         '''
-        pass
+        first = tf.transpose(x) @ net_act #(B,M).T @ (B,H) = (M,H)
+        second = self.wts * tf.reduce_sum(net_in * net_act, axis=0, keepdims=True) #(M,H) * ((B,H) * (B,H)) sum B axis = (M,H)
+        mb_wt_change = first - second
+
+        norm_wt_change = mb_wt_change / (tf.reduce_max(tf.abs(self.wts)) + eps)
+        self.wts += lr * norm_wt_change
+        
 
     def fit(self, x, epochs=1, mini_batch_sz=500, lr=1e-2, plot_wts_live=False, fig_sz=(9, 9), n_wts_plotted=(10, 10),
             print_every=1, save_wts=True, ds_feat_shape=(32, 32, 3)):
