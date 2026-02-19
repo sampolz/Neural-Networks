@@ -192,6 +192,8 @@ class HebbNet:
         - When training is done, save the wts if `save_wts` is True. Using `np.save` is totally fine here.
         '''
         N = len(x)
+        x = tf.convert_to_tensor(x, dtype=tf.float32)
+        e = 0
 
         if plot_wts_live:
             fig = plt.figure(figsize=fig_sz)
@@ -206,6 +208,26 @@ class HebbNet:
             time.sleep(0.001)
         else:
             print(f'Starting epoch {e}/{epochs}')
+
+        for e in range(1, epochs + 1):
+            perm = tf.random.shuffle(tf.range(N))
+            for start in range(0, N, mini_batch_sz):
+                end = min(start + mini_batch_sz, N)
+                batch_inds = perm[start:end]
+                x_mb = tf.gather(x, batch_inds)
+                net_in = self.net_in(x_mb)
+                net_act = self.net_act(net_in)
+                self.update_wts(x_mb, net_in, net_act, lr)
+            if e % print_every == 0:
+                if plot_wts_live:
+                    draw_grid_image(tf.transpose(self.wts), n_wts_plotted[0], n_wts_plotted[1],
+                                    title=f'Net receptive fields (Epoch {e})',
+                                    sample_dims=ds_feat_shape)
+                    display.clear_output(wait=True)
+                    display.display(fig)
+                    time.sleep(0.001)
+                else:
+                    print(f'Starting epoch {e}/{epochs}')
 
         # This happens at the end
         if save_wts:
