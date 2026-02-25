@@ -85,7 +85,11 @@ class NonlinearDecoder(network.DeepNetwork):
         2. The output layer for ANY `DeepNetwork` here and going forward should be assigned to the variable
         self.output_layer.
         '''
-        pass
+        super().__init__(input_feats_shape)
+        self.C = C
+        self.loss_exp = loss_exp
+        self.output_layer = Dense('Output Layer', C, activation='tanh', wt_scale=wt_scale, prev_layer_or_block=None)
+        self.output_layer.set_tanh_beta(beta)
 
     def __call__(self, x):
         '''Do a forward pass thru the network with mini-batch `x`.
@@ -100,4 +104,4 @@ class NonlinearDecoder(network.DeepNetwork):
         tf.float32 tensor. shape=(B, M).
             The output layer activation computed on the current mini-batch.
         '''
-        pass
+        return self.output_layer(x)

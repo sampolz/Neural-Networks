@@ -36,6 +36,7 @@ class Layer:
         self.do_group_norm = do_group_norm
         self.net_in = None
         self.net_act = None
+        self.tanh_beta = 1.0
 
         self.wts = None
         self.b = None
@@ -89,7 +90,7 @@ class Layer:
         (Week 3)
         NOTE: Ignore until instructed otherwise.
         '''
-        pass
+        self.tanh_beta = beta
 
     def set_num_groups(self, groups):
         '''Sets the number of normalization groups to use within the layer for group normalization.
@@ -171,6 +172,8 @@ class Layer:
             return net_in
         if self.activation == 'softmax':
             return tf.nn.softmax(net_in, axis=-1)
+        if self.activation == 'tanh':
+            return tf.math.tanh(self.tanh_beta * net_in)
         raise ValueError(f'Unsupported activation function: {self.activation}')
 
     def __call__(self, x):

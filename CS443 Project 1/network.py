@@ -223,11 +223,17 @@ class DeepNetwork:
         function in tf_util.py that offers functionality that is similar to arange indexing in NumPy (which you cannot
         do in TensorFlow). Use it!
         '''
-        if self.loss_name != 'cross_entropy':
-            raise ValueError(f'Unsupported loss: {self.loss_name}')
-        y = tf.cast(y, tf.int32)
-        probs_true = arange_index(out_net_act, y)
-        return -tf.reduce_mean(tf.math.log(probs_true + eps))
+        if self.loss_name == 'cross_entropy':
+            y = tf.cast(y, tf.int32)
+            probs_true = arange_index(out_net_act, y)
+            return -tf.reduce_mean(tf.math.log(probs_true + eps))
+        if self.loss_name == 'lp':
+            y = tf.cast(y, tf.int32)
+            C = tf.shape(out_net_act)[1]
+            y_one_hot = tf.one_hot(y, depth=C, on_value=1.0, off_value=-1.0, dtype=tf.float32)
+            m = tf.cast(getattr(self, 'loss_exp', 2.0), tf.float32)
+            return tf.reduce_mean(tf.pow(tf.abs(y_one_hot - out_net_act), m))
+        raise ValueError(f'Unsupported loss: {self.loss_name}')
 
     def update_params(self, tape, loss):
         '''Do backpropogation: have the optimizer update the network parameters recorded on `tape` based on the
