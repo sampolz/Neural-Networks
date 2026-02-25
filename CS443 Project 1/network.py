@@ -388,6 +388,7 @@ class DeepNetwork:
         num_batches = N // batch_size
         if num_batches < 1:
             num_batches = 1
+        recent_val_losses = []
 
         e = 0
         for e in range(1, max_epochs + 1):
@@ -409,9 +410,12 @@ class DeepNetwork:
                 val_acc, val_loss = self.evaluate(x_val, y_val)
                 val_acc_hist.append(float(val_acc.numpy()))
                 val_loss_hist.append(float(val_loss.numpy()))
+                recent_val_losses, stop = self.early_stopping(recent_val_losses, val_loss_hist[-1], patience)
                 self.set_layer_training_mode(True)
                 if verbose and (e % print_every == 0):
                     print(f'Epoch {e}/{max_epochs} - train loss {train_loss_hist[-1]:.4f} - val loss {val_loss_hist[-1]:.4f} - val acc {val_acc_hist[-1]:.4f}')
+                if stop:
+                    break
 
             if verbose and (e % print_every == 0):
                 elapsed = time.time() - epoch_start
@@ -519,7 +523,16 @@ class DeepNetwork:
         - It may be helpful to think of `recent_val_losses` as a queue: the current loss value always gets inserted
         either at the beginning or end. The oldest value is then always on the other end of the list.
         '''
-        pass
+        recent_val_losses.append(curr_val_loss)
+        if len(recent_val_losses) > patience + 1:
+            recent_val_losses.pop(0)
+
+        if len(recent_val_losses) < patience + 1:
+            return recent_val_losses, False
+
+        oldest = recent_val_losses[0]
+        stop = all(oldest < loss for loss in recent_val_losses[1:])
+        return recent_val_losses, stop
 
     def lr_step_decay(self, lr_decay_rate):
         '''Adjusts the learning rate used by the optimizer to be a proportion `lr_decay_rate` of the current learning
