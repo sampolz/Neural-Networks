@@ -50,7 +50,42 @@ class DensePCN(network.DeepNetwork):
         to make sure your network works with your existing `DeepNetwork` and `Layer` code.
         4. Create instance variables for parameters as needed.
         '''
+        super().__init__(input_feats_shape)
+        self.C = C
+        self.hidden_units = hidden_units
+        self.wt_scale = wt_scale
+        self.gamma_lr = gamma_lr
+        self.train_num_steps = train_num_steps
+        self.test_num_steps = test_num_steps
+
         self.layers = []
+        input_units = int(np.prod(input_feats_shape))
+        input_layer = InputPCNLayer('InputLayer', units=input_units, gamma_lr=gamma_lr)
+        self.layers.append(input_layer)
+
+        prev_layer = input_layer
+        for i, units in enumerate(hidden_units):
+            curr_layer = DensePCNLayer(
+                name=f'PredLayer_{i}',
+                units=units,
+                wt_scale=wt_scale,
+                prev_layer_or_block=prev_layer,
+                gamma_lr=gamma_lr
+            )
+            prev_layer.set_next_layer(curr_layer)
+            self.layers.append(curr_layer)
+            prev_layer = curr_layer
+
+        output_layer = OutputPCNLayer(
+            name='OutputLayer',
+            units=C,
+            wt_scale=wt_scale,
+            prev_layer_or_block=prev_layer,
+            gamma_lr=gamma_lr
+        )
+        prev_layer.set_next_layer(output_layer)
+        self.layers.append(output_layer)
+        self.output_layer = output_layer
 
     def set_test_num_steps(self, num_steps):
         '''Set method to update the number of steps/iterations/sweeps used by the PCN during inference.
@@ -60,7 +95,7 @@ class DensePCN(network.DeepNetwork):
         num_steps: int.
             Number of steps/iterations/sweeps to use by the PCN during inference.
         '''
-        pass
+        self.test_num_steps = num_steps
 
     def __call__(self, x):
         '''Perform the forward pass through the network.
@@ -75,7 +110,10 @@ class DensePCN(network.DeepNetwork):
         tf.float32 tensor. shape=(B, C).
             netAct produced by the output layer.
         '''
-        pass
+        net_act = x
+        for layer in self.layers:
+            net_act = layer(net_act)
+        return net_act
 
     def update_states(self, num_steps, x_batch, y_batch=None):
         '''Performs `num_steps` forward sweeps through the network to update the state in each successive layer.
@@ -99,6 +137,21 @@ class DensePCN(network.DeepNetwork):
         4. Iteratively update the state in each network layer from input → output layer.
         '''
         B, M = x_batch.shape
+        for layer in self.layers:
+            layer.reset_state(B)
+
+        self(x_batch)
+
+        self.layers[0].clamp_state()
+        if y_batch is not None:
+            self.output_layer.clamp_state()
+            self.output_layer.set_state(tf.one_hot(y_batch, depth=self.C, dtype=tf.float32))
+        else:
+            self.output_layer.unclamp_state()
+
+        for t in range(num_steps):
+            for layer in self.layers:
+                layer.update_state()
 
     def loss(self):
         '''Computes the loss for the current minibatch based on the states store in each network layer.
@@ -114,7 +167,12 @@ class DensePCN(network.DeepNetwork):
         2. Throw an error if the the user specified loss is not supported.
         '''
         if self.loss_name == 'predictive':
-            pass
+            total_loss = tf.constant(0.0, dtype=tf.float32)
+            for layer in self.layers[1:]:
+                pred_err = layer.prediction_error()
+                layer_loss = tf.reduce_mean(0.5 * tf.reduce_sum(tf.square(pred_err), axis=1))
+                total_loss = total_loss + layer_loss
+            return total_loss
         else:
             raise ValueError(f'Unknown loss function {self.loss_name}')
 
@@ -129,7 +187,12 @@ class DensePCN(network.DeepNetwork):
         float.
             The loss.
         '''
-        pass
+        self.set_layer_training_mode(True)
+        with tf.GradientTape() as tape:
+            self.update_states(self.train_num_steps, x_batch, y_batch)
+            batch_loss = self.loss()
+        self.update_params(tape, batch_loss)
+        return batch_loss
 
     def test_step(self, x_batch, y_batch, num_steps):
         '''Completely process a single mini-batch of data during test/validation time. This should mirror your version
@@ -159,7 +222,12 @@ class DensePCN(network.DeepNetwork):
         I suggest making sure the predicted classes are cast to tf.int32 before calling accuracy. This should make
         the dtype of the predicted classes the same as in the previous project.
         '''
-        pass
+        self.set_layer_training_mode(False)
+        self.update_states(num_steps, x_batch)
+        y_pred = tf.cast(tf.argmax(self.output_layer.get_state(), axis=1), tf.int32)
+        acc = self.accuracy(y_batch, y_pred)
+        loss = self.loss()
+        return acc, loss
 
     def evaluate(self, x, y, batch_sz=64):
         '''Evaluates the accuracy and loss on the data `x` and labels `y`. Breaks the dataset into mini-batches for you
@@ -383,4 +451,3 @@ class DensePCN(network.DeepNetwork):
             time.sleep(0.1)
 
         plt.close()
-

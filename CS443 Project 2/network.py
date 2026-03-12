@@ -1,6 +1,6 @@
 '''network.py
 Deep neural network core functionality implemented with the low-level TensorFlow API.
-YOUR NAMES HERE
+Sam Polyakova and Teagan Turner
 CS 443: Bio-Inspired Learning
 '''
 import time

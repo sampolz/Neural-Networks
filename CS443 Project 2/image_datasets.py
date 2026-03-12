@@ -1,6 +1,6 @@
 '''image_datasets.py
 Functions to load and preprocess image datasets
-YOUR NAMES HERE
+Sam Polyakova and Teagan Turner
 CS 443: Bio-Inspired Machine Learning
 Project 1: Hebbian Learning
 '''
