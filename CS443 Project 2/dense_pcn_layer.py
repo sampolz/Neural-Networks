@@ -48,6 +48,9 @@ class PCNLayer(Dense):
         1. Call the `Dense` layer superclass constructor, passing in relevant parameters that it already handles.
         2. Create additional instance variables as needed.
         '''
+        Dense.__init__(self, name, units, activation=activation, wt_scale=wt_scale, prev_layer_or_block=prev_layer_or_block)
+        self.gamma_lr = gamma_lr
+        self.next_layer_or_block = next_layer_or_block
 
         # Keep the following
         self.is_clamped = tf.Variable(False, trainable=False)  # Is the state protected from evolving from feedback?
@@ -56,11 +59,11 @@ class PCNLayer(Dense):
 
     def get_prev_layer(self):
         '''Returns a reference to the PCNLayer object that represents the layer below the current one.'''
-        pass
+        return self.prev_layer_or_block
 
     def get_next_layer(self):
         '''Returns a reference to the PCNLayer object that represents the layer above the current one.'''
-        pass
+        return self.next_layer_or_block
 
     def set_next_layer(self, next_layer):
         '''Assign a reference to the specified `PCNLayer` object `next_layer` as the next layer in the PCN.
@@ -70,11 +73,11 @@ class PCNLayer(Dense):
         next_layer: PCNLayer (or Layer-like) object.
             The next layer in the network.
         '''
-        pass
+        self.next_layer_or_block = next_layer
 
     def is_output_layer(self):
         '''Returns whether the current layer is an output layer. By default, this is false here.'''
-        pass
+        return False
 
     def get_state(self):
         '''Returns the evolving state maintained by the layer.
@@ -84,7 +87,7 @@ class PCNLayer(Dense):
         tf.float32 tensor. Shape=(B, H).
             The layer's evolving state.
         '''
-        pass
+        return self.state
 
     def reset_state(self, B):
         '''Zero out the layer state.
@@ -94,23 +97,23 @@ class PCNLayer(Dense):
         B: int.
             The current mini-batch size.
         '''
-        pass
+        self.state = tf.zeros((B, self.units), dtype=tf.float32)
 
     def set_state(self, state):
         '''Assigns the new state `state` as the layer's evolving state, replacing anyone that previously exists.'''
-        pass
+        self.state = state
 
     def clamp_state(self):
         '''Modify the `is_clamped` instance variable to indicate that the state is now clamped (i.e. cant be modified).
         Use the .assign method (not = operator)
         '''
-        pass
+        self.is_clamped.assign(True)
 
     def unclamp_state(self):
         '''Modify the `is_clamped` instance variable to indicate that the state is NOT clamped (i.e. CAN be modified).
         Use the .assign method (not = operator).
         '''
-        pass
+        self.is_clamped.assign(False)
 
 
     def __call__(self, x):
@@ -130,7 +133,12 @@ class PCNLayer(Dense):
         1. Copy-paste for implementation from `Layer`.
         2. Before the method ends, assign the netAct to the state instance variable.
         '''
-        pass
+        self.net_in = self.compute_net_input(x)
+        self.net_act = self.compute_net_activation(self.net_in)
+        if self.output_shape is None:
+            self.output_shape = list(self.net_act.shape)
+        self.state = self.net_act
+        return self.net_act
 
     def __str__(self):
         '''This layer's "ToString" method. Feel free to customize if you want to make the layer description fancy,
@@ -165,13 +173,22 @@ class InputPCNLayer(PCNLayer):
         1. Call the `PCNLayer` layer parent class constructor, passing in relevant parameters that it already handles.
         2. Clamp the layer state by default.
         '''
+        super().__init__(
+            name=name,
+            units=units,
+            activation='linear',
+            prev_layer_or_block=None,
+            gamma_lr=gamma_lr,
+            next_layer_or_block=next_layer_or_block
+        )
+        self.clamp_state()
 
         # Keep the following to be used later on
         self.mask = None
 
     def has_wts(self):
         '''Returns whether the layer has weights. Input layers do NOT have weights, so... :)'''
-        pass
+        return False
 
     def compute_net_input(self, x):
         '''Computes the "net input" for the input layer. There is no true "net input" computation so this is just the
@@ -187,7 +204,7 @@ class InputPCNLayer(PCNLayer):
         tf.constant. tf.float32s. shape=(B, M)
             The mini-batch of data.
         '''
-        pass
+        return x
 
     def set_mask(self, mask):
         '''Assigns the occlusion mask `mask` for the current mini-batch to the corresponding instance variable.
@@ -211,7 +228,12 @@ class InputPCNLayer(PCNLayer):
 
         NOTE: We ONLY update the state (or do any work) when the input layer is NOT clamped.
         '''
-        pass
+        if bool(self.is_clamped.numpy()):
+            return
+        if self.next_layer_or_block is None:
+            return
+        prediction_error = self.state - self.next_layer_or_block.predict_input()
+        self.state = self.state - self.gamma_lr * prediction_error
 
 
 class DensePCNLayer(PCNLayer):
@@ -246,7 +268,16 @@ class DensePCNLayer(PCNLayer):
 
         TODO: Call the `PCNLayer` layer parent class constructor, passing in relevant parameters.
         '''
-        pass
+        PCNLayer.__init__(
+            self,
+            name=name,
+            units=units,
+            activation='linear',
+            wt_scale=wt_scale,
+            prev_layer_or_block=prev_layer_or_block,
+            gamma_lr=gamma_lr,
+            next_layer_or_block=next_layer_or_block
+        )
 
     def init_params(self, input_shape):
         '''Initializes the layer's weights. This is the same as the method in `Dense`, except we turn off the bias.
@@ -260,7 +291,8 @@ class DensePCNLayer(PCNLayer):
         1. Call the `Dense` parent version of this method to avoid code redundancy.
         2. Turn off the bias by assigning it to None.
         '''
-        pass
+        Dense.init_params(self, input_shape)
+        self.b = None
 
     def compute_net_input(self, x):
         '''Computes the net input for the current dense PCNLayer.
@@ -277,7 +309,9 @@ class DensePCNLayer(PCNLayer):
 
         TODO: Copy-paste from your `Dense` implementation but adapt for the fact that this layer has no bias.
         '''
-        pass
+        if self.wts is None:
+            self.init_params(x.shape)
+        return tf.matmul(x, self.wts)
 
     def predict_input(self):
         '''Use the layer evolving state and the weights to predict the expected bottom-up input to the current layer.
@@ -301,7 +335,7 @@ class DensePCNLayer(PCNLayer):
         tf.constant. tf.float32s. shape=(B, M) or (B, H_prev) if this is hidden layer 2+.
             The prediction error.
         '''
-        pass
+        return self.prev_layer_or_block.get_state() - self.predict_input()
 
     def update_state(self):
         '''Updates the layer's state using gradients based on:
@@ -310,7 +344,11 @@ class DensePCNLayer(PCNLayer):
 
         Refer to the notebook for a refresher on the equation.
         '''
-        pass
+        if bool(self.is_clamped.numpy()):
+            return
+        d_bu = -tf.matmul(self.prediction_error(), self.wts)
+        d_td = self.state - self.next_layer_or_block.predict_input()
+        self.state = self.state - self.gamma_lr * (d_bu + d_td)
 
 
 class OutputPCNLayer(DensePCNLayer):
@@ -339,14 +377,22 @@ class OutputPCNLayer(DensePCNLayer):
 
         TODO: Call the parent class constructor, passing in relevant parameters.
         '''
-        pass
+        DensePCNLayer.__init__(
+            self,
+            name=name,
+            units=units,
+            wt_scale=wt_scale,
+            prev_layer_or_block=prev_layer_or_block,
+            gamma_lr=gamma_lr,
+            next_layer_or_block=None
+        )
 
     def is_output_layer(self):
         '''Returns whether this is an output layer.
 
         (This is provided and does not require modification :)
         '''
-        pass
+        return True
 
     def update_state(self):
         '''Updates the layer's state using gradients based on the current layer's prediction error (bottom-up).
@@ -355,4 +401,7 @@ class OutputPCNLayer(DensePCNLayer):
 
         NOTE: We make no updates to the state if the layer is CLAMPED.
         '''
-        pass
+        if bool(self.is_clamped.numpy()):
+            return
+        d_bu = -tf.matmul(self.prediction_error(), self.wts)
+        self.state = self.state - self.gamma_lr * d_bu
