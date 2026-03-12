@@ -1,6 +1,6 @@
 '''dense_pcn_layer.py
 Densely connected layers in a predictive coding network (PCN)
-Sam Polyakova and Teagan Turner
+Sam Polyakov and Teagan Turner
 CS 443: Bio-Inspired Learning
 '''
 import tensorflow as tf
