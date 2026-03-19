@@ -324,15 +324,18 @@ class DensePCN(network.DeepNetwork):
         one_hot_vecs = tf.eye(C)
 
         # TODO 1: Before we dream, reset all the states in the net
-
+        for layer in self.layers:
+            layer.reset_state(C)
 
         # TODO 2: Configure the input layer for dreaming: set the initial state to the random noise patterns and unclamp
         # the layer so the state can evolve.
-
+        self.layers[0].set_state(generated_inputs)
+        self.layers[0].unclamp_state()
 
         # TODO 3: Configure the output layer for dreaming: set the state of each the dreaming neuron to 1 and the rest
         # to 0 and clamp the layer so the network dynamics do not change the output layer state.
-
+        self.layers[-1].set_state(one_hot_vecs)
+        self.layers[-1].clamp_state()
 
         # Prepare plots for fast updating
         img_objs = []
