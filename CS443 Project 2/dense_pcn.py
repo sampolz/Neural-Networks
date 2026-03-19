@@ -408,15 +408,19 @@ class DensePCN(network.DeepNetwork):
         yh_batch = tf.one_hot(y_batch, C)
 
         # TODO 1: Before we fill in image detail, reset all the states in the net
-
+        for layer in self.layers:
+            layer.reset_state(B)
 
         # TODO 2: Configure the input layer for completion: set the initial state to the masked mini-batch,
         # make the mask available to the layer, and unclamp the layer.
-
+        self.layers[0].set_state(x_batch)
+        self.layers[0].set_mask(x_mask)
+        self.layers[0].unclamp_state()
 
         # TODO 3: Configure the output layer for completion: set the state to the one-hot class labels and clamp the
         # state
-
+        self.layers[-1].set_state(yh_batch)
+        self.layers[-1].clamp_state()
 
         # Prepare plots for fast updating
         img_objs = []

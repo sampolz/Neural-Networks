@@ -216,7 +216,7 @@ class InputPCNLayer(PCNLayer):
         tf.constant. tf.float32s. shape=(B, M)
             The occlusion mask for the current mini-batch of data.
         '''
-        pass
+        self.mask = mask
 
     def update_state(self):
         '''Updates the state in the input layer based on predictive feedback from the PCNLayer above.
@@ -233,6 +233,10 @@ class InputPCNLayer(PCNLayer):
         if self.next_layer_or_block is None:
             return
         prediction_error = self.state - self.next_layer_or_block.predict_input()
+        #Mask exists, zero out real pixel prediction errors
+        if self.mask is not None:
+            prediction_error = prediction_error * (1 - self.mask)
+        #No mask, normal state update
         self.state = self.state - self.gamma_lr * prediction_error
 
 
