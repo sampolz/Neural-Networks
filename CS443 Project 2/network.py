@@ -119,7 +119,10 @@ class DeepNetwork:
         TODO: Starting with the output layer, traverse the net backward, calling the appropriate method to
         initialize the group norm parameters in each network layer. Model this process around the summary method.
         '''
-        pass
+        layer = self.output_layer
+        while layer is not None:
+            layer.init_groupnorm_params()
+            layer = layer.get_prev_layer_or_block()
 
     def get_all_params(self, wts_only=False):
         '''Traverses the network backward from the output layer to compile a list of all trainable network paramters.

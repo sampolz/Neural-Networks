@@ -1,6 +1,6 @@
 '''conv_pcn_block.py
 The convolutional predictive coding block for the ConvPCN.
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS 443: Bio-Inspired Learning
 '''
 import tensorflow as tf

@@ -1,6 +1,6 @@
 '''conv_layers.py
 Convolutional layers in a predictive coding network (PCN)
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS 443: Bio-Inspired Learning
 '''
 import tensorflow as tf
@@ -50,10 +50,16 @@ class Conv2D(layers.Layer):
         # kernel width and height.
         if isinstance(kernel_size, int):
             kernel_size = (kernel_size, kernel_size)
+        super().__init__(name, activation, prev_layer_or_block, do_group_norm=do_group_norm)
+        self.units = units
+        self.kernel_size = kernel_size
+        self.strides = strides
+        self.wt_scale = wt_scale
+        self.wt_init = wt_init
 
     def has_wts(self):
         '''Returns whether the Conv2D layer has weights. This is always true so always return... :)'''
-        pass
+        return True
 
     def init_params(self, input_shape):
         '''Initializes the Conv2D layer's weights and biases.
@@ -68,6 +74,22 @@ class Conv2D(layers.Layer):
         during training.
         '''
         N, I_y, I_x, n_chans = input_shape
+        if self.wt_init == 'normal':
+            stddev = self.wt_scale
+        elif self.wt_init == 'he':
+            fan_in = self.kernel_size[0] * self.kernel_size[1] * n_chans
+            stddev = self.get_kaiming_gain() / tf.sqrt(tf.cast(fan_in, tf.float32))
+        else:
+            raise ValueError(f'Unsupported weight initialization method: {self.wt_init}')
+        self.wts = tf.Variable(
+            tf.random.normal(
+                shape=(self.kernel_size[0], self.kernel_size[1], n_chans, self.units),
+                mean=0.0,
+                stddev=stddev
+            ),
+            trainable=True
+        )
+        self.b = tf.Variable(tf.zeros(shape=(self.units,)), trainable=True)
 
 
     def compute_net_input(self, x):
@@ -93,9 +115,11 @@ class Conv2D(layers.Layer):
 
         NOTE: Don't forget the bias!
         '''
-        pass
+        if self.wts is None:
+            self.init_params(x.shape)
+        return tf.nn.conv2d(x, self.wts, strides=self.strides, padding='SAME') + self.b
 
-    def compute_group_norm(self, net_in, eps=0.001):
+    def compute_group_norm(self, net_in, eps=1e-5):
         '''Computes group normalization for the input tensor. Group normalization normalizes the activations among
         groups of neurons in a layer for each data point independently.
 
@@ -119,6 +143,14 @@ class Conv2D(layers.Layer):
             The normalized tensor with the same shape as the input tensor.
         '''
         B, Iy, Ix, K = net_in.shape
+        if self.num_groups is None:
+            self.num_groups = max(round(K / 8), 1)
+        G = self.num_groups
+        net_in_grouped = tf.reshape(net_in, (B, Iy, Ix, G, K // G))
+        mean, var = tf.nn.moments(net_in_grouped, axes=[1, 2, 4], keepdims=True)
+        net_in_groupnorm = (net_in_grouped - mean) / tf.sqrt(var + eps)
+        net_in_groupnorm = tf.reshape(net_in_groupnorm, (B, Iy, Ix, K))
+        return net_in_groupnorm * self.gn_gain + self.gn_bias
 
 
     def __str__(self):
@@ -157,6 +189,9 @@ class MaxPool2D(layers.Layer):
         # for window width and height.
         if isinstance(pool_size, int):
             pool_size = (pool_size, pool_size)
+        super().__init__(name, 'linear', prev_layer_or_block)
+        self.pool_size = pool_size
+        self.strides = strides
 
 
     def compute_net_input(self, x):
@@ -178,7 +213,7 @@ class MaxPool2D(layers.Layer):
 
         Helpful link: https://www.tensorflow.org/api_docs/python/tf/nn/max_pool2d
         '''
-        pass
+        return tf.nn.max_pool2d(x, ksize=self.pool_size, strides=self.strides, padding='VALID')
     def __str__(self):
         '''This layer's "ToString" method. Feel free to customize if you want to make the layer description fancy,
         but this method is provided to you. You should not need to modify it.
@@ -223,7 +258,18 @@ class Conv2DTranspose(Conv2D):
 
         NOTE: The units will be set during lazy initialization so set units to None for the time being.
         '''
-        pass
+        super().__init__(
+            name=name,
+            units=None,
+            kernel_size=kernel_size,
+            strides=strides,
+            activation=activation,
+            wt_scale=wt_scale,
+            prev_layer_or_block=prev_layer_or_block,
+            wt_init=wt_init,
+            do_group_norm=do_group_norm
+        )
+        self.units = None
 
     def init_params(self, input_shape):
         '''Initializes the Conv2D layer's weights and biases.
@@ -239,6 +285,22 @@ class Conv2DTranspose(Conv2D):
         '''
 
         N, I_y, I_x, n_chans = input_shape
+        if self.wt_init == 'normal':
+            stddev = self.wt_scale
+        elif self.wt_init == 'he':
+            fan_in = self.kernel_size[0] * self.kernel_size[1] * n_chans
+            stddev = self.get_kaiming_gain() / tf.sqrt(tf.cast(fan_in, tf.float32))
+        else:
+            raise ValueError(f'Unsupported weight initialization method: {self.wt_init}')
+        self.wts = tf.Variable(
+            tf.random.normal(
+                shape=(self.kernel_size[0], self.kernel_size[1], self.units, n_chans),
+                mean=0.0,
+                stddev=stddev
+            ),
+            trainable=True
+        )
+        self.b = tf.Variable(tf.zeros(shape=(self.units,)), trainable=True)
 
 
     def compute_net_input(self, x, units_prev):
@@ -275,6 +337,10 @@ class Conv2DTranspose(Conv2D):
         '''
         if self.units is None: 
             self.units = units_prev
+        if self.wts is None:
+            self.init_params(x.shape)
+        output_shape = tf.stack([tf.shape(x)[0], tf.shape(x)[1] * self.strides, tf.shape(x)[2] * self.strides, self.units])
+        return tf.nn.conv2d_transpose(x, self.wts, output_shape=output_shape, strides=self.strides, padding='SAME') + self.b
 
 
     def __call__(self, x, units_prev):
@@ -293,7 +359,13 @@ class Conv2DTranspose(Conv2D):
         TODO: This should be the same as the one in Layer, except note the difference in method signature for
         compute_net_input.
         '''
-        pass
+        self.net_in = self.compute_net_input(x, units_prev)
+        if self.do_group_norm and self.gn_gain is not None:
+            self.net_in = self.compute_group_norm(self.net_in)
+        self.net_act = self.compute_net_activation(self.net_in)
+        if self.output_shape is None:
+            self.output_shape = list(self.net_act.shape)
+        return self.net_act
 
     def __str__(self):
         '''This layer's "ToString" method. Feel free to customize if you want to make the layer description fancy,

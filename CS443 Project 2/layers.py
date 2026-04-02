@@ -97,7 +97,7 @@ class Layer:
 
         (Ignore until later in the semester)
         '''
-        pass
+        self.num_groups = groups
 
     def get_mode(self):
         '''Returns whether the Layer is in a training state.
@@ -203,6 +203,8 @@ class Layer:
         Python list by calling the `list` function — e.g. `list(blah)`.
         '''
         self.net_in = self.compute_net_input(x)
+        if self.do_group_norm and self.gn_gain is not None:
+            self.net_in = self.compute_group_norm(self.net_in)
         self.net_act = self.compute_net_activation(self.net_in)
         if self.output_shape is None:
             self.output_shape = list(self.net_act.shape)
@@ -238,7 +240,9 @@ class Layer:
         float.
             The Kaiming gain.
         '''
-        pass
+        if self.activation == 'relu':
+            return tf.sqrt(2.0)
+        return 1.0
 
     def is_doing_groupnorm(self):
         '''Returns whether the current layer is using group normalization.
@@ -250,9 +254,9 @@ class Layer:
         bool.
             True if the layer has batch normalization turned on, False otherwise.
         '''
-        pass
+        return self.do_group_norm
 
-    def compute_group_norm(self, net_in, eps=0.001):
+    def compute_group_norm(self, net_in, eps=1e-5):
         '''Computes the group normalization based on on the net input `net_in`.
 
         Leave this parent method empty — subclasses should implement this.
@@ -275,6 +279,9 @@ class Layer:
         '''
         if not self.do_group_norm:
             return
+        self.gn_gain = tf.Variable(tf.ones(shape=(self.units,)), trainable=True)
+        self.gn_bias = tf.Variable(tf.zeros(shape=(self.units,)), trainable=True)
+        self.b = tf.Variable(0.0, trainable=False)
 
 
 class Dense(Layer):
@@ -335,8 +342,14 @@ class Dense(Layer):
         later in the semester :)
         '''
         num_inputs = input_shape[-1]
+        if self.wt_init == 'normal':
+            stddev = self.wt_scale
+        elif self.wt_init == 'he':
+            stddev = self.get_kaiming_gain() / tf.sqrt(tf.cast(num_inputs, tf.float32))
+        else:
+            raise ValueError(f'Unsupported weight initialization method: {self.wt_init}')
         self.wts = tf.Variable(
-            tf.random.normal(shape=(num_inputs, self.units), mean=0.0, stddev=self.wt_scale),
+            tf.random.normal(shape=(num_inputs, self.units), mean=0.0, stddev=stddev),
             trainable=True
         )
         self.b = tf.Variable(tf.zeros(shape=(self.units,)), trainable=True)
@@ -385,6 +398,14 @@ class Dense(Layer):
             The normalized tensor with the same shape as the input tensor.
         '''
         B, H = net_in.shape
+        if self.num_groups is None:
+            self.num_groups = max(round(H / 8), 1)
+        G = self.num_groups
+        net_in_grouped = tf.reshape(net_in, (B, G, H // G))
+        mean, var = tf.nn.moments(net_in_grouped, axes=[2], keepdims=True)
+        net_in_groupnorm = (net_in_grouped - mean) / tf.sqrt(var + eps)
+        net_in_groupnorm = tf.reshape(net_in_groupnorm, (B, H))
+        return net_in_groupnorm * self.gn_gain + self.gn_bias
 
     def __str__(self):
         '''This layer's "ToString" method. Feel free to customize if you want to make the layer description fancy,

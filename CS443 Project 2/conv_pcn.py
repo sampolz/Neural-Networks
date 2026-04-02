@@ -1,6 +1,6 @@
 '''conv_pcn.py
 Convolutional predictive coding neural network.
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS 443: Bio-Inspired Learning
 '''
 import network
