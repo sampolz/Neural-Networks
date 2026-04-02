@@ -241,7 +241,7 @@ class Layer:
             The Kaiming gain.
         '''
         if self.activation == 'relu':
-            return tf.sqrt(2.0)
+            return 2.0
         return 1.0
 
     def is_doing_groupnorm(self):
@@ -345,7 +345,7 @@ class Dense(Layer):
         if self.wt_init == 'normal':
             stddev = self.wt_scale
         elif self.wt_init == 'he':
-            stddev = self.get_kaiming_gain() / tf.sqrt(tf.cast(num_inputs, tf.float32))
+            stddev = tf.sqrt(self.get_kaiming_gain() / tf.cast(num_inputs, tf.float32))
         else:
             raise ValueError(f'Unsupported weight initialization method: {self.wt_init}')
         self.wts = tf.Variable(
@@ -402,8 +402,9 @@ class Dense(Layer):
             self.num_groups = max(round(H / 8), 1)
         G = self.num_groups
         net_in_grouped = tf.reshape(net_in, (B, G, H // G))
-        mean, var = tf.nn.moments(net_in_grouped, axes=[2], keepdims=True)
-        net_in_groupnorm = (net_in_grouped - mean) / tf.sqrt(var + eps)
+        mean = tf.reduce_mean(net_in_grouped, axis=[2], keepdims=True)
+        std = tf.math.reduce_std(net_in_grouped, axis=[2], keepdims=True)
+        net_in_groupnorm = (net_in_grouped - mean) / (std + eps)
         net_in_groupnorm = tf.reshape(net_in_groupnorm, (B, H))
         return net_in_groupnorm * self.gn_gain + self.gn_bias
 

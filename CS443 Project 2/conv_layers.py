@@ -78,9 +78,9 @@ class Conv2D(layers.Layer):
             stddev = self.wt_scale
         elif self.wt_init == 'he':
             fan_in = self.kernel_size[0] * self.kernel_size[1] * n_chans
-            stddev = self.get_kaiming_gain() / tf.sqrt(tf.cast(fan_in, tf.float32))
+            stddev = tf.sqrt(self.get_kaiming_gain() / tf.cast(fan_in, tf.float32))
         else:
-            raise ValueError(f'Unsupported weight initialization method: {self.wt_init}')
+            raise ValueError(f'Use he or normal, not {self.wt_init}')
         self.wts = tf.Variable(
             tf.random.normal(
                 shape=(self.kernel_size[0], self.kernel_size[1], n_chans, self.units),
@@ -119,7 +119,7 @@ class Conv2D(layers.Layer):
             self.init_params(x.shape)
         return tf.nn.conv2d(x, self.wts, strides=self.strides, padding='SAME') + self.b
 
-    def compute_group_norm(self, net_in, eps=1e-5):
+    def compute_group_norm(self, net_in, eps=0.001):
         '''Computes group normalization for the input tensor. Group normalization normalizes the activations among
         groups of neurons in a layer for each data point independently.
 
@@ -147,10 +147,11 @@ class Conv2D(layers.Layer):
             self.num_groups = max(round(K / 8), 1)
         G = self.num_groups
         net_in_grouped = tf.reshape(net_in, (B, Iy, Ix, G, K // G))
-        mean, var = tf.nn.moments(net_in_grouped, axes=[1, 2, 4], keepdims=True)
-        net_in_groupnorm = (net_in_grouped - mean) / tf.sqrt(var + eps)
-        net_in_groupnorm = tf.reshape(net_in_groupnorm, (B, Iy, Ix, K))
-        return net_in_groupnorm * self.gn_gain + self.gn_bias
+        mean = tf.reduce_mean(net_in_grouped, axis=[1, 2, 4], keepdims=True)
+        std = tf.math.reduce_std(net_in_grouped, axis=[1, 2, 4], keepdims=True)
+        net_in_grouped_norm = (net_in_grouped - mean) / (std + eps)
+        net_in_grouped_norm = tf.reshape(net_in_grouped_norm, (B, Iy, Ix, K))
+        return net_in_grouped_norm * self.gn_gain + self.gn_bias
 
 
     def __str__(self):
@@ -214,6 +215,8 @@ class MaxPool2D(layers.Layer):
         Helpful link: https://www.tensorflow.org/api_docs/python/tf/nn/max_pool2d
         '''
         return tf.nn.max_pool2d(x, ksize=self.pool_size, strides=self.strides, padding='VALID')
+    
+
     def __str__(self):
         '''This layer's "ToString" method. Feel free to customize if you want to make the layer description fancy,
         but this method is provided to you. You should not need to modify it.
@@ -289,9 +292,9 @@ class Conv2DTranspose(Conv2D):
             stddev = self.wt_scale
         elif self.wt_init == 'he':
             fan_in = self.kernel_size[0] * self.kernel_size[1] * n_chans
-            stddev = self.get_kaiming_gain() / tf.sqrt(tf.cast(fan_in, tf.float32))
+            stddev = tf.sqrt(self.get_kaiming_gain() / tf.cast(fan_in, tf.float32))
         else:
-            raise ValueError(f'Unsupported weight initialization method: {self.wt_init}')
+            raise ValueError(f'Use he or normal, not: {self.wt_init}')
         self.wts = tf.Variable(
             tf.random.normal(
                 shape=(self.kernel_size[0], self.kernel_size[1], self.units, n_chans),
