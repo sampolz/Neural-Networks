@@ -56,7 +56,32 @@ class ConvPCNBlock(block.Block):
         2. Build out and configure layers that belong to the block and add them to the self.layers list.
         3. Create instance variables for other parameters as needed.
         '''
-        self.layers = []
+        super().__init__(blockname, prev_layer_or_block)
+        self.num_steps = num_steps
+        self.state_lr = state_lr
+
+        conv = Conv2D(
+            name=f'{blockname}_conv',
+            units=units,
+            kernel_size=kernel_size,
+            strides=strides,
+            activation='relu',
+            prev_layer_or_block=prev_layer_or_block,
+            wt_init=wt_init,
+            do_group_norm=do_group_norm
+        )
+        convt = Conv2DTranspose(
+            name=f'{blockname}_convt',
+            kernel_size=kernel_size,
+            strides=strides,
+            activation='relu',
+            prev_layer_or_block=conv,
+            wt_init=wt_init,
+            do_group_norm=do_group_norm
+        )
+        self.layers = [conv, convt]
+        if dropout_rate is not None:
+            self.layers.append(Dropout(name=f'{blockname}_dropout', rate=dropout_rate, prev_layer_or_block=convt))
 
     def __call__(self, x):
         '''Forward pass through the ConvPCNBlock.
@@ -81,4 +106,17 @@ class ConvPCNBlock(block.Block):
         5. Repeat steps 2-4 for the preset number of steps.
         6. Apply the dropout (if we are doing).
         '''
-        pass
+        conv = self.layers[0]
+        convt = self.layers[1]
+        units_prev = x.shape[-1]
+
+        state = conv(x)
+        for _ in range(self.num_steps):
+            x_pred = convt(state, units_prev=units_prev)
+            pred_err = tf.nn.relu(x - x_pred)
+            state = state + self.state_lr * conv(pred_err)
+
+        if len(self.layers) > 2:
+            state = self.layers[2](state)
+
+        return state
