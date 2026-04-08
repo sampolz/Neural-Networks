@@ -201,7 +201,7 @@ class ConvPCN6Mini(ConvPCN):
             activation='softmax',
             prev_layer_or_block=hidden,
             wt_init=wt_init,
-            do_group_norm=do_group_norm
+            do_group_norm=False
         )
 
         self.layers = [Conv, ConvPCNBlock1, Maxpool1, ConvPCNBlock2, Maxpool2, ConvPCNBlock3, Maxpool3, flattened]
