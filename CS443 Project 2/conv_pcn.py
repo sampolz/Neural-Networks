@@ -264,4 +264,118 @@ class ConvPCN7XL(ConvPCN):
         '''
         super().__init__(input_feats_shape)
 
-        self.layers = []
+        Conv = Conv2D(
+            name='conv1',
+            units=conv_units,
+            kernel_size=(3, 3),
+            strides=1,
+            activation='relu',
+            wt_scale=1e-3,
+            prev_layer_or_block=None,
+            wt_init=wt_init,
+            do_group_norm=do_group_norm
+        )
+
+        ConvPCNBlock1 = ConvPCNBlock(
+            blockname='ConvPCNBlock1',
+            units=pcn_units[0],
+            kernel_size=(3, 3),
+            strides=1,
+            num_steps=num_steps,
+            state_lr=step_alpha,
+            dropout_rate=dropout_rate,
+            wt_init=wt_init,
+            do_group_norm=do_group_norm,
+            prev_layer_or_block=Conv
+        )
+
+        ConvPCNBlock2 = ConvPCNBlock(
+            blockname='ConvPCNBlock2',
+            units=pcn_units[1],
+            kernel_size=(3, 3),
+            strides=1,
+            num_steps=num_steps,
+            state_lr=step_alpha,
+            dropout_rate=dropout_rate,
+            wt_init=wt_init,
+            do_group_norm=do_group_norm,
+            prev_layer_or_block=ConvPCNBlock1
+        )
+
+        ConvPCNBlock3 = ConvPCNBlock(
+            blockname='ConvPCNBlock3',
+            units=pcn_units[2],
+            kernel_size=(3, 3),
+            strides=1,
+            num_steps=num_steps,
+            state_lr=step_alpha,
+            dropout_rate=dropout_rate,
+            wt_init=wt_init,
+            do_group_norm=do_group_norm,
+            prev_layer_or_block=ConvPCNBlock2
+        )
+
+        Maxpool1 = MaxPool2D(
+            name='Maxpool1',
+            pool_size=(2, 2),
+            strides=2,
+            prev_layer_or_block=ConvPCNBlock3
+        )
+
+        ConvPCNBlock4 = ConvPCNBlock(
+            blockname='ConvPCNBlock4',
+            units=pcn_units[3],
+            kernel_size=(3, 3),
+            strides=1,
+            num_steps=num_steps,
+            state_lr=step_alpha,
+            dropout_rate=dropout_rate,
+            wt_init=wt_init,
+            do_group_norm=do_group_norm,
+            prev_layer_or_block=Maxpool1
+        )
+
+        Maxpool2 = MaxPool2D(
+            name='Maxpool2',
+            pool_size=(2, 2),
+            strides=2,
+            prev_layer_or_block=ConvPCNBlock4
+        )
+
+        flattened = Flatten(
+            name='Flatten',
+            prev_layer_or_block=Maxpool2
+        )
+
+        if dropout_rate is not None:
+            dropped = Dropout(
+                name='dropout',
+                rate=dropout_rate,
+                prev_layer_or_block=flattened
+            )
+        else:
+            dropped = flattened
+
+        hidden = Dense(
+            name='Dense_Hidden',
+            units=dense_units,
+            activation='relu',
+            prev_layer_or_block=dropped,
+            wt_init=wt_init,
+            do_group_norm=do_group_norm
+        )
+
+        output = Dense(
+            name='Output',
+            units=C,
+            activation='softmax',
+            prev_layer_or_block=hidden,
+            wt_init=wt_init,
+            do_group_norm=False
+        )
+
+        self.layers = [Conv, ConvPCNBlock1, ConvPCNBlock2, ConvPCNBlock3, Maxpool1, ConvPCNBlock4, Maxpool2, flattened]
+        if dropout_rate is not None:
+            self.layers.append(dropped)
+        self.layers.extend([hidden, output])
+        self.output_layer = output
