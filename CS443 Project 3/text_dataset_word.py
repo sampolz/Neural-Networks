@@ -1,6 +1,6 @@
 '''text_dataset_word.py
 Functions to create, organize, and preprocess a word level text dataset
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS 443: Bio-inspired Machine Learning
 Project 3: Word Embeddings and Self-Organizing Maps (SOMs)
 '''
@@ -52,35 +52,35 @@ class WordLevelDataset:
 
     def get_filepath(self):
         '''Get the filepath to the dataset .CSV data file.'''
-        pass
+        return self.file_path
 
     def get_reviews(self):
         '''Get the raw text reviews represented as strings.'''
-        pass
+        return self.reviews_raw
 
     def get_corpus(self):
         '''Get the corpus, a list of lists organized: sentences across reviews/words in each sentence'''
-        pass
+        return self.corpus
 
     def get_context_words(self):
         '''Get the (N,) int-coded context word tensor for context words across the corpus.'''
-        pass
+        return self.context_words_int
 
     def get_target_words(self):
         '''Get the (N,) int-coded target word tensor for target words across the corpus.'''
-        pass
+        return self.target_words_int
 
     def get_word2ind_map(self):
         '''Get dictionary that looks up a word index (int) by its string.'''
-        pass
+        return self.word2ind_map
 
     def get_ind2word_map(self):
         '''Get dictionary that uses a word int code to look up its word string'''
-        pass
+        return self.ind2word_map
 
     def get_vocab(self):
         '''Get the vocabulary, the unique list of words in the corpus'''
-        pass
+        return self.vocab
 
     def save_vocab(self, full_path='export/vocab.pkl'):
         '''Saves the vocabulary to disk to quick retrieval later without re-parsing the whole text dataset.
@@ -151,7 +151,14 @@ class WordLevelDataset:
         Python list of str. len=N_reviews
             Retrieved reviews, with each whole review represented as a single string (see example above).
         '''
-        pass
+        reviews_df = pd.read_csv(self.file_path)
+
+        if N_reviews == -1:
+            self.reviews_raw = reviews_df['review'].tolist()
+        else:
+            self.reviews_raw = reviews_df['review'].iloc[:N_reviews].tolist()
+
+        return self.reviews_raw
 
     def make_corpus(self, reviews, min_sent_size=2):
         '''Make the text corpus of the IMDb dataset.
@@ -184,7 +191,20 @@ class WordLevelDataset:
         3. Tokenize the sentence into individual word strings (via provided `tokenize_words` function in `text_util.py`)
         4. Make sure only sentences get added to the corpus that are AT LEAST as long as the min length.
         '''
-        pass
+        import re
+
+        corpus = []
+
+        for review in reviews:
+            sentences = re.split(r'[.?!]', review)
+            for sentence in sentences:
+                tokenized_sentence = tokenize_words(sentence)
+                if len(tokenized_sentence) >= min_sent_size:
+                    corpus.append(tokenized_sentence)
+
+        self.corpus = corpus
+
+        return corpus
 
     def make_vocabulary(self, corpus):
         '''Define the vocabulary in the corpus (unique words). Finds and returns a list of the unique words in the
@@ -200,7 +220,16 @@ class WordLevelDataset:
         Python list of str. len=vocab_sz.
             List of unique words in the corpus.
         '''
-        pass
+        vocab = []
+
+        for sentence in corpus:
+            for word in sentence:
+                if word not in vocab:
+                    vocab.append(word)
+
+        self.vocab = vocab
+
+        return vocab
 
     def make_word2ind_mapping(self, vocab):
         '''Create dictionary that looks up a word index (int) by its string.
@@ -215,7 +244,14 @@ class WordLevelDataset:
         -----------
         Python dictionary. key,value pairs: str,int
         '''
-        pass
+        word2ind = {}
+
+        for i, word in enumerate(vocab):
+            word2ind[word] = i
+
+        self.word2ind_map = word2ind
+
+        return word2ind
 
     def make_ind2word_mapping(self, vocab):
         '''Create dictionary that uses a word int code to look up its word string
@@ -230,7 +266,14 @@ class WordLevelDataset:
         -----------
         Python dictionary with key,value pairs: int,str
         '''
-        pass
+        ind2word = {}
+
+        for i, word in enumerate(vocab):
+            ind2word[i] = word
+
+        self.ind2word_map = ind2word
+
+        return ind2word
 
     def make_target_context_word_lists(self, corpus, word2ind, context_win_sz=2):
         '''Make the target word array ("training samples") and context word array ("classes").
@@ -273,6 +316,19 @@ class WordLevelDataset:
         target_words_int = []
         context_words_int = []
 
+        for sentence in corpus:
+            for i, target_word in enumerate(sentence):
+                start = max(0, i - context_win_sz)
+                end = min(len(sentence), i + context_win_sz + 1)
+
+                for j in range(start, end):
+                    if i != j:
+                        target_words_int.append(word2ind[target_word])
+                        context_words_int.append(word2ind[sentence[j]])
+
+        target_words_int = tf.convert_to_tensor(target_words_int, dtype=tf.int32)
+        context_words_int = tf.convert_to_tensor(context_words_int, dtype=tf.int32)
+
         return target_words_int, context_words_int
 
     def process(self, N_reviews=10000):
@@ -298,6 +354,14 @@ class WordLevelDataset:
         2. Assign key variables (e.g. vocab, word2ind map, ...) as instance variables for quick retrieval after the
         preprocessing completes. For the constructor for a full list of fields to set.
         '''
+        self.reviews_raw = self.load(N_reviews)
+        self.corpus = self.make_corpus(self.reviews_raw, self.min_sent_size)
+        self.vocab = self.make_vocabulary(self.corpus)
+        self.word2ind_map = self.make_word2ind_mapping(self.vocab)
+        self.ind2word_map = self.make_ind2word_mapping(self.vocab)
+        self.target_words_int, self.context_words_int = self.make_target_context_word_lists(
+            self.corpus, self.word2ind_map, self.context_win_sz
+        )
 
         if self.verbose:
             print(f'Number of target words: {len(self.target_words_int)}')

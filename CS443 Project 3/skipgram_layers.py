@@ -1,6 +1,6 @@
 '''skipgram_layers.py
 New neural network layers used for the Skipgram Network
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS 443: Bio-Inspired Machine Learning
 Project 3: Word Embeddings and Self-Organizing Maps (SOMs)
 '''

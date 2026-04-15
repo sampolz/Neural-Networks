@@ -1,6 +1,6 @@
 '''skipgram.py
 The Skipgram neural network
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS 443: Bio-Inspired Machine Learning
 Project 3: Word Embeddings and Self-Organizing Maps (SOMs)
 '''
