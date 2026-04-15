@@ -31,7 +31,7 @@ class Embedding(Dense):
         You should only need to call and pass in relevant information into the superclass constructor to implement this
         method.
         '''
-        pass
+        super().__init__(name, units, activation='linear', prev_layer_or_block=prev_layer_or_block, wt_init='he')
 
     def compute_net_input(self, x):
         '''Computes the net input for the current Embedding layer.
@@ -61,4 +61,4 @@ class Embedding(Dense):
         # TODO: Handle regular (non-pilot) case during training/inference where `x` has shape (B,) and contains
         # INDICIES to extract corresponding embedding layer weights.
         # Don't forget about the bias!
-        pass
+        return tf.gather(self.wts, x) + self.b

@@ -43,7 +43,9 @@ class Skipgram(network.DeepNetwork):
         1. Call the superclass constructor to pass along parameters that `DeepNetwork` has in common.
         2. Build out and configure the Skipgram network.
         '''
-        pass
+        super().__init__(input_feats_shape)
+        embedding_layer = Embedding('Embedding', embedding_dim)
+        self.output_layer = Dense('Output', C, activation='softmax', prev_layer_or_block=embedding_layer, wt_init='he')
 
     def __call__(self, x):
         '''Forward pass through the Skipgram with the data samples `x`.
@@ -58,7 +60,7 @@ class Skipgram(network.DeepNetwork):
         tf.float32 tensor. shape=(B, C).
             Activations produced by the output layer to the data.
         '''
-        pass
+        return self.output_layer(self.output_layer.get_prev_layer_or_block()(x))
 
     def fit(self, x, y, batch_size=256, epochs=10, print_every=1, linear_lr_decay=True, linear_lr_min_lr=1e-5,
             verbose=True):
@@ -102,13 +104,56 @@ class Skipgram(network.DeepNetwork):
         as ONE entry in `train_loss_hist`, then the next 500 mini-batch losses (500-999) would be averaged then added as
         ONE entry in `train_loss_hist`, and so on.
         '''
-        N = len(x)
-        mini_batches = N // batch_size
-
-        # Define loss tracking containers
         train_loss_hist = []
 
-        print(f'Finished training after {e+1} epochs!')
+        self.set_layer_training_mode(True)
+        rng = np.random.default_rng(0)
+        N = len(x)
+        mini_batches = N // batch_size
+        if mini_batches < 1:
+            mini_batches = 1
+        num_steps = epochs * mini_batches
+        initial_lr = float(self.opt.learning_rate.numpy())
+        running_loss = 0.0
+        running_batches = 0
+        t = 0
+
+        for e in range(1, epochs + 1):
+            epoch_start = time.time()
+
+            for _ in range(mini_batches):
+                batch_inds = rng.integers(low=0, high=N, size=batch_size)
+                x_batch = tf.gather(x, batch_inds)
+                y_batch = tf.gather(y, batch_inds)
+                batch_loss = self.train_step(x_batch, y_batch)
+                running_loss += float(batch_loss.numpy())
+                running_batches += 1
+
+                if linear_lr_decay:
+                    self.lr_linear_decay(initial_lr, t, num_steps, min_allowed_lr=linear_lr_min_lr)
+
+                if running_batches == print_every:
+                    avg_loss = running_loss / running_batches
+                    train_loss_hist.append(avg_loss)
+                    if verbose:
+                        print(f'Mini-batch {t+1}/{num_steps} - train loss {avg_loss:.4f}')
+                    running_loss = 0.0
+                    running_batches = 0
+
+                t += 1
+
+            if verbose:
+                elapsed = time.time() - epoch_start
+                print(f'Epoch {e}/{epochs} took {elapsed:.2f}s')
+
+        if running_batches > 0:
+            avg_loss = running_loss / running_batches
+            train_loss_hist.append(avg_loss)
+            if verbose:
+                print(f'Mini-batch {t}/{num_steps} - train loss {avg_loss:.4f}')
+
+        if verbose:
+            print(f'Finished training after {e} epochs!')
         return train_loss_hist
 
     def lr_linear_decay(self, initial_lr, t, num_steps, min_allowed_lr=1e-5):
@@ -130,19 +175,21 @@ class Skipgram(network.DeepNetwork):
             For example, if the lr decay equation says lr should be 0.001 but if min_allowed_lr=0.01, then we actually
             set the lr to 0.01.
         '''
-        pass
+        lr = initial_lr * (1 - ((t + 1) / num_steps))
+        lr = max(lr, min_allowed_lr)
+        self.opt.learning_rate.assign(lr)
 
     def get_word_embedding(self, wordind):
         '''Given the word index `wordind` retrieve and return the corresponding embedding vector.'''
-        pass
+        return self.output_layer.get_prev_layer_or_block().get_wts()[wordind]
 
     def get_all_embeddings(self):
         '''Retrieve and return the embedding vectors for ALL words in the vocab.'''
-        pass
+        return self.output_layer.get_prev_layer_or_block().get_wts()
 
     def get_bias(self):
         '''Retrieve and return the embedding layer bias.'''
-        pass
+        return self.output_layer.get_prev_layer_or_block().get_b()
 
     def save_embeddings(self, path='export', filename='embeddings.npz'):
         '''Saves the embeddings to disk.
