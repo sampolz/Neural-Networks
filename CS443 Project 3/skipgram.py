@@ -104,13 +104,58 @@ class Skipgram(network.DeepNetwork):
         as ONE entry in `train_loss_hist`, then the next 500 mini-batch losses (500-999) would be averaged then added as
         ONE entry in `train_loss_hist`, and so on.
         '''
-        N = len(x)
-        mini_batches = N // batch_size
-
+    
         # Define loss tracking containers
         train_loss_hist = []
 
-        print(f'Finished training after {e+1} epochs!')
+        self.set_layer_training_mode(True)
+        rng = np.random.default_rng(0)
+        N = len(x)
+        num_batches = N // batch_size
+        if num_batches < 1:
+            num_batches = 1
+        num_steps = epochs * num_batches
+        initial_lr = float(self.opt.learning_rate.numpy())
+        running_loss = 0.0
+        running_batches = 0
+        t = 0
+
+
+        for e in range(1, epochs + 1):
+            epoch_start = time.time()
+
+            for _ in range(num_batches):
+                batch_inds = rng.integers(low=0, high=N, size=batch_size)
+                x_batch = tf.gather(x, batch_inds)
+                y_batch = tf.gather(y, batch_inds)
+                batch_loss = self.train_step(x_batch, y_batch)
+                running_loss += float(batch_loss.numpy())
+                running_batches += 1
+
+                if linear_lr_decay:
+                    self.lr_linear_decay(initial_lr, t, num_steps, min_allowed_lr=linear_lr_min_lr)
+
+                if running_batches == print_every:
+                    avg_loss = running_loss / running_batches
+                    train_loss_hist.append(avg_loss)
+                    if verbose:
+                        print(f'Mini-batch {t}/{num_steps}, Avg training loss: {avg_loss:.4f}')
+                    running_loss = 0.0
+                    running_batches = 0
+                t += 1
+            
+            if verbose:
+                elapsed = time.time() - epoch_start
+                print(f'Epoch {e}/{epochs} took {elapsed:.2f} seconds.')
+            
+        if running_batches > 0:
+            avg_loss = running_loss / running_batches
+            train_loss_hist.append(avg_loss)
+            if verbose:
+                print(f'Mini-batch {t}/{num_steps}, Avg training loss: {avg_loss:.4f}')
+
+        if verbose:
+            print(f'Finished training after {e} epochs!')
         return train_loss_hist
 
     def lr_linear_decay(self, initial_lr, t, num_steps, min_allowed_lr=1e-5):
@@ -138,15 +183,15 @@ class Skipgram(network.DeepNetwork):
 
     def get_word_embedding(self, wordind):
         '''Given the word index `wordind` retrieve and return the corresponding embedding vector.'''
-        pass
+        return self.output_layer.get_prev_layer_or_block().get_wts()[wordind]
 
     def get_all_embeddings(self):
         '''Retrieve and return the embedding vectors for ALL words in the vocab.'''
-        pass
+        return self.output_layer.get_prev_layer_or_block().get_wts()
 
     def get_bias(self):
         '''Retrieve and return the embedding layer bias.'''
-        pass
+        return self.output_layer.get_prev_layer_or_block().get_b()
 
     def save_embeddings(self, path='export', filename='embeddings.npz'):
         '''Saves the embeddings to disk.
