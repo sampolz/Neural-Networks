@@ -1,6 +1,6 @@
 '''som.py
 Self-organizing map implemented in NumPy
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS 443: Bio-Inspired Machine Learning
 Project 3: Word Embeddings and Self-Organizing Maps (SOMs)
 '''
@@ -49,6 +49,9 @@ class SOM:
         self.num_feats = num_feats
         self.n_rows, self.n_cols = map_sz
 
+        rng = np.random.default_rng(seed)
+        self.wts = rng.uniform(low = feature_range[0], high = feature_range[1], size=(self.n_rows, self.n_cols, num_feats))
+
         # Used later, when implementing Gaussian index grid. Will be used to calculate Euclidean dist around BMU
         nr, nc = np.meshgrid(np.arange(self.n_rows), np.arange(self.n_cols), indexing='ij')
         self.som_grid_rows = nr
@@ -76,7 +79,11 @@ class SOM:
 
         NOTE: For efficiency, you may not use any loops.
         '''
-        pass
+        differences = self.wts - input_vector
+        dist = np.sqrt(np.sum(differences **2, axis=2))
+        bmu_lin_idx = np.argmin(dist)
+        return tuple(map(int, lin2sub(bmu_lin_idx, dist.shape)))
+    
 
     def get_nearest_wts(self, data):
         '''Find the nearest SOM wt vector to each of data sample vectors.
@@ -91,7 +98,11 @@ class SOM:
 
         NOTE: A loop is fine here.
         '''
-        pass
+        nearest_wts = []
+        for i in range(len(data)):
+            bmu = self.get_bmu(data[i])
+            nearest_wts.append(self.wts[bmu])
+        return np.array(nearest_wts)
 
     def gaussian(self, bmu_rc, sigma):
         '''Generates a "normalized" 2D Gaussian, where the max value is 1, and is centered on `bmu_rc`.
@@ -121,7 +132,10 @@ class SOM:
 
         NOTE: For efficiency, you should not use any for loops.
         '''
-        pass
+        r_bmu, c_bmu = bmu_rc
+        dist_squared = (self.som_grid_rows - r_bmu) ** 2 + (self.som_grid_cols - c_bmu) ** 2
+        gaussian = np.exp(-dist_squared / (2 * sigma ** 2))
+        return gaussian
 
     def update_wts(self, input_vector, bmu_rc, lr, sigma):
         '''Applies the SOM update rule to change the BMU (and neighboring units') weights,
