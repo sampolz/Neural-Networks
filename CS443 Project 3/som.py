@@ -151,7 +151,7 @@ class SOM:
 
         NOTE: For efficiency, you should not use any loops.
         '''
-        pass
+        self.wts = self.wts + lr * self.gaussian(bmu_rc, sigma)[:, :, None] * (input_vector - self.wts)
 
     def decay_param(self, curr_iter, num_iters, initial_val, final_val):
         '''Takes a hyperparameter (e.g. lr, sigma) and applies a exponential time-dependent decay function.
