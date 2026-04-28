@@ -213,6 +213,24 @@ class SOM:
 
         print(f'Starting training for {epochs} epochs...')
 
+        tau_lr = -(num_iters - 1) / np.log(lr_final / lr_initial)
+        tau_sigma = -(num_iters - 1) / np.log(sigma_final / sigma_initial)
+        curr_iter = 0
+        lr = lr_initial
+        sigma = sigma_initial
+
+        for e in range(epochs):
+            x_epoch = x[rng.permutation(N)]
+
+            for sample in x_epoch:
+                lr = lr_initial * np.exp(-curr_iter / tau_lr)
+                sigma = sigma_initial * np.exp(-curr_iter / tau_sigma)
+                bmu_rc = self.get_bmu(sample)
+                self.update_wts(sample, bmu_rc, lr, sigma)
+                curr_iter += 1
+
+            if verbose and ((e + 1) % print_every == 0):
+                print(f'Epoch {e+1}/{epochs}: lr={lr:.4f}, sigma={sigma:.4f}, bmu error={self.error(x):.4f}')
 
         print(f'Finished training.')
 
@@ -232,7 +250,14 @@ class SOM:
         - Progressively average the Euclidean distance between each data vector
         and the BMU weight vector.
         '''
-        pass
+        avg_error = 0.0
+
+        for i, sample in enumerate(data):
+            bmu = self.get_bmu(sample)
+            dist = np.sqrt(np.sum((sample - self.wts[bmu]) ** 2))
+            avg_error += (dist - avg_error) / (i + 1)
+
+        return avg_error
 
     def u_matrix(self):
         '''Compute U-matrix, the distance each SOM unit wt and that of its 8 local neighbors.
@@ -247,4 +272,29 @@ class SOM:
         - Loops are fine here.
 
         '''
-        pass
+        u_mat = np.zeros((self.n_rows, self.n_cols))
+
+        for r in range(self.n_rows):
+            for c in range(self.n_cols):
+                total_dist = 0.0
+                num_neighbors = 0
+
+                for dr in [-1, 0, 1]:
+                    for dc in [-1, 0, 1]:
+                        if dr == 0 and dc == 0:
+                            continue
+
+                        nr = r + dr
+                        nc = c + dc
+
+                        if 0 <= nr < self.n_rows and 0 <= nc < self.n_cols:
+                            total_dist += np.sqrt(np.sum((self.wts[r, c] - self.wts[nr, nc]) ** 2))
+                            num_neighbors += 1
+
+                u_mat[r, c] = total_dist / num_neighbors
+
+        u_min = np.min(u_mat)
+        u_max = np.max(u_mat)
+        u_mat = (u_mat - u_min) / (u_max - u_min)
+
+        return u_mat
