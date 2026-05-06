@@ -116,25 +116,20 @@ class GRU(layers.Layer):
         H_prev = input_shape[-1]
         H = self.units
 
-        sig_i2h = 1.0 * tf.sqrt(2.0 / tf.cast(H_prev, tf.float32))
-        sig_h2h = 1.0 * tf.sqrt(2.0 / tf.cast(H, tf.float32))
-        sig_b   = 1.0 * tf.sqrt(2.0 / tf.cast(H, tf.float32))
-
-        tanh_i2h = (5.0 / 3.0) * tf.sqrt(2.0 / tf.cast(H_prev, tf.float32))
-        tanh_h2h = (5.0 / 3.0) * tf.sqrt(2.0 / tf.cast(H, tf.float32))
-        tanh_b   = (5.0 / 3.0) * tf.sqrt(2.0 / tf.cast(H, tf.float32))
+        sig_i2h  = 1.0       / tf.sqrt(tf.cast(H_prev, tf.float32))
+        tanh_i2h = (5.0/3.0) / tf.sqrt(tf.cast(H_prev, tf.float32))
 
         self.wts_update_i2h = tf.Variable(tf.random.normal(shape=(H_prev, H), stddev=sig_i2h))
-        self.wts_update_h2h = tf.Variable(tf.random.normal(shape=(H, H), stddev=sig_h2h))
-        self.update_b       = tf.Variable(tf.random.normal(shape=(H,), stddev=sig_b))
+        self.wts_update_h2h = tf.Variable(tf.eye(H))
+        self.update_b       = tf.Variable(tf.zeros(shape=(H,)))
 
         self.wts_reset_i2h  = tf.Variable(tf.random.normal(shape=(H_prev, H), stddev=sig_i2h))
-        self.wts_reset_h2h  = tf.Variable(tf.random.normal(shape=(H, H), stddev=sig_h2h))
-        self.reset_b        = tf.Variable(tf.random.normal(shape=(H,), stddev=sig_b))
+        self.wts_reset_h2h  = tf.Variable(tf.eye(H))
+        self.reset_b        = tf.Variable(tf.zeros(shape=(H,)))
 
         self.wts_cand_i2h   = tf.Variable(tf.random.normal(shape=(H_prev, H), stddev=tanh_i2h))
-        self.wts_cand_h2h   = tf.Variable(tf.random.normal(shape=(H, H), stddev=tanh_h2h))
-        self.cand_b         = tf.Variable(tf.random.normal(shape=(H,), stddev=tanh_b))
+        self.wts_cand_h2h   = tf.Variable(tf.eye(H))
+        self.cand_b         = tf.Variable(tf.zeros(shape=(H,)))
 
     def get_wts(self):
         '''Return all the weights in the layer in a Python list.
@@ -189,7 +184,10 @@ class GRU(layers.Layer):
         if self.wts_update_i2h is None:
             self.init_params(input_shape=x.shape)
 
-        pass
+        update_gate_in = x @ self.wts_update_i2h + state @ self.wts_update_h2h + self.update_b
+        reset_gate_in  = x @ self.wts_reset_i2h  + state @ self.wts_reset_h2h  + self.reset_b
+        cand_in        = x @ self.wts_cand_i2h   + self.cand_b
+        return update_gate_in, reset_gate_in, cand_in
 
     def compute_net_activation(self, update_gate_in, reset_gate_in, cand_in, state):
         '''Computes the state and net activation of the GRU Layer for the current time step.
@@ -214,7 +212,11 @@ class GRU(layers.Layer):
         tf.float32 tensor. shape=(B, H).
             The reset gate computed for the current time step.
         '''
-        pass
+        z = tf.sigmoid(update_gate_in)
+        r = tf.sigmoid(reset_gate_in)
+        h_cand = tf.tanh(cand_in + (r * state) @ self.wts_cand_h2h)
+        new_state = (1.0 - z) * state + z * h_cand
+        return new_state, z, r
 
     def reset_state(self, B):
         '''Returns the reset/default GRU state of 0s for all neurons.
@@ -229,7 +231,7 @@ class GRU(layers.Layer):
         tf.float32 tensor. shape=(B, H).
             The reset/default GRU state of 0s for all neurons.
         '''
-        pass
+        return tf.zeros(shape=(B, self.units), dtype=tf.float32)
 
     def __call__(self, x, mask, state=None):
         '''Do a forward pass thru the GRU layer with mini-batch `x`.
@@ -264,6 +266,24 @@ class GRU(layers.Layer):
         '''
         B, T, H_prev = x.shape
 
+        if state is None:
+            state = self.reset_state(B)
+
+        state_history = []
+        for t in range(T):
+            x_t = x[:, t, :]
+            mask_t = mask[:, t, :]
+            update_gate_in, reset_gate_in, cand_in = self.compute_net_input(x_t, state)
+            new_state, _, _ = self.compute_net_activation(update_gate_in, reset_gate_in, cand_in, state)
+            state = mask_t * new_state + (1.0 - mask_t) * state
+            state_history.append(state)
+
+        net_act = tf.stack(state_history, axis=1)
+
+        if self.output_shape is None:
+            self.output_shape = list(net_act.shape)
+
+        return net_act
 
     def __str__(self):
         '''This layer's "ToString" method. Feel free to customize if you want to make the layer description fancy,
