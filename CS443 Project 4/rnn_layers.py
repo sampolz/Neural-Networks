@@ -28,6 +28,8 @@ class GRU(layers.Layer):
         TODO: Call the superclass constructor, filling in all relevant information. Assign any additional parameters as
         instance vars as needed.
         '''
+        super().__init__(layer_name=name, activation='linear', prev_layer_or_block=prev_layer_or_block)
+        self.units = units
 
         # Wts and bias placeholders
         # Update gate related wts/bias
@@ -111,7 +113,28 @@ class GRU(layers.Layer):
         4. Use He/Kaiming initialization. See the notes and notebook for refreshers on the gains and the strategy for
         the hidden-to-hidden weights.
         '''
-        pass
+        H_prev = input_shape[-1]
+        H = self.units
+
+        sig_i2h = 1.0 * tf.sqrt(2.0 / tf.cast(H_prev, tf.float32))
+        sig_h2h = 1.0 * tf.sqrt(2.0 / tf.cast(H, tf.float32))
+        sig_b   = 1.0 * tf.sqrt(2.0 / tf.cast(H, tf.float32))
+
+        tanh_i2h = (5.0 / 3.0) * tf.sqrt(2.0 / tf.cast(H_prev, tf.float32))
+        tanh_h2h = (5.0 / 3.0) * tf.sqrt(2.0 / tf.cast(H, tf.float32))
+        tanh_b   = (5.0 / 3.0) * tf.sqrt(2.0 / tf.cast(H, tf.float32))
+
+        self.wts_update_i2h = tf.Variable(tf.random.normal(shape=(H_prev, H), stddev=sig_i2h))
+        self.wts_update_h2h = tf.Variable(tf.random.normal(shape=(H, H), stddev=sig_h2h))
+        self.update_b       = tf.Variable(tf.random.normal(shape=(H,), stddev=sig_b))
+
+        self.wts_reset_i2h  = tf.Variable(tf.random.normal(shape=(H_prev, H), stddev=sig_i2h))
+        self.wts_reset_h2h  = tf.Variable(tf.random.normal(shape=(H, H), stddev=sig_h2h))
+        self.reset_b        = tf.Variable(tf.random.normal(shape=(H,), stddev=sig_b))
+
+        self.wts_cand_i2h   = tf.Variable(tf.random.normal(shape=(H_prev, H), stddev=tanh_i2h))
+        self.wts_cand_h2h   = tf.Variable(tf.random.normal(shape=(H, H), stddev=tanh_h2h))
+        self.cand_b         = tf.Variable(tf.random.normal(shape=(H,), stddev=tanh_b))
 
     def get_wts(self):
         '''Return all the weights in the layer in a Python list.

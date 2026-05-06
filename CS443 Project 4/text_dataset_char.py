@@ -1,6 +1,6 @@
 '''text_dataset_char.py
 Functions to create, organize, and preprocess a character level text dataset
-YOUR NAMES HERE
+Sam Polyakov and Teagan Turner
 CS 443: Bio-inspired Machine Learning
 Project 4: Recurrent Neural Networks
 '''
