@@ -408,6 +408,35 @@ class Dense(Layer):
         net_in_groupnorm = tf.reshape(net_in_groupnorm, (B, H))
         return net_in_groupnorm * self.gn_gain + self.gn_bias
 
+    def save_wts(self):
+        '''Load saved weights and bias from disk and replace any existing ones in the layer.
+
+        (This method is provided to you. It should not requre modification.)
+
+        Parameters:
+        -----------
+        file_path: str.
+            File path to the stored wts/bias.
+        '''
+        params = {}
+        params['wts'] = self.wts.numpy()
+        params['b'] = self.b.numpy()
+
+        return params
+
+    def load_wts(self, params):
+        '''Load saved weights and bias from disk and replace any existing ones in the layer.
+
+        (This method is provided to you. It should not requre modification.)
+
+        Parameters:
+        -----------
+        file_path: str.
+            File path to the stored wts/bias.
+        '''
+        self.wts.assign(params['wts'])
+        self.b.assign(params['b'])
+
     def __str__(self):
         '''This layer's "ToString" method. Feel free to customize if you want to make the layer description fancy,
         but this method is provided to you. You should not need to modify it.

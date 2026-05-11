@@ -403,7 +403,15 @@ class GRU_RNN2(RNN):
         1. Call the superclass constructor to pass along parameters that `DeepNetwork` has in common.
         2. Build out the network like usual. NOTE: you should populate the self.is_recurrent_layer list.
         '''
-        pass
+        super(GRU_RNN2, self).__init__(input_feats_shape, C)
+        embed = Embedding('Embed', embedding_dim)
+        gru = GRU('GRU', rnn_units[0], prev_layer_or_block=embed)
+        drop = Dropout('Drop', dropout_rates[0], prev_layer_or_block=gru)
+        gru2 = GRU('GRU2', rnn_units[1], prev_layer_or_block=drop)
+        drop2 = Dropout('Drop2', dropout_rates[1], prev_layer_or_block=gru2)
+        out = Dense('Dense_Out', C, activation='softmax', wt_init='he', prev_layer_or_block=drop2)
+        self.output_layer = out
+        self.is_recurrent_layer = [False, True, False, True, False, False]
 
 
 class GRU_RNN2XL(GRU_RNN2):
