@@ -168,7 +168,7 @@ class CharLevelDataset:
         except you should remove non-printable characters and HTML tags from each review. Do this using the
         `clean_review` function provided in text_util.py.
         '''
-        df = pd.read_csv(self.file_path)
+        df = pd.read_csv(self.file_pat, engine = 'python', error_bad_lines = 'skip')
 
         if N_reviews < 0:
             N_reviews = len(df)
